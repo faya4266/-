@@ -159,6 +159,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   .act button{flex:1}
 }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -647,8 +648,9 @@ let supabaseConfig={url:'',key:''};
 try{
   const q=new URLSearchParams(location.search);
   const saved=JSON.parse(localStorage.getItem(SUPABASE_KEY)||'{}');
-  supabaseConfig.url=(q.get('supabaseUrl')||saved.url||'').replace(/\/+$/,'');
-  supabaseConfig.key=q.get('supabaseKey')||saved.key||'';
+  const cfgFile=(window.SUPABASE_CONFIG&&typeof window.SUPABASE_CONFIG==='object')?window.SUPABASE_CONFIG:{};
+  supabaseConfig.url=(q.get('supabaseUrl')||cfgFile.url||saved.url||'').replace(/\/+$/,'');
+  supabaseConfig.key=q.get('supabaseKey')||cfgFile.key||saved.key||'';
   if(supabaseConfig.url&&supabaseConfig.key)localStorage.setItem(SUPABASE_KEY,JSON.stringify(supabaseConfig));
 }catch(e){}
 let cloudClient=null;
@@ -1693,7 +1695,7 @@ $('#openDisplay').onclick=()=>{
   if(sc)q.push('sharecode='+encodeURIComponent(sc));
   if(supabaseConfig.url)q.push('supabaseUrl='+encodeURIComponent(supabaseConfig.url));
   if(supabaseConfig.key)q.push('supabaseKey='+encodeURIComponent(supabaseConfig.key));
-  var u='语文打卡展示屏.html'+(q.length?('?'+q.join('&')):'');
+  var u='display.html'+(q.length?('?'+q.join('&')):'');
   window.open(u,'_blank');
 };
 $('#classSel').onchange=e=>{data.state.classId=e.target.value;save();renderCheckin();renderWeekly();renderStats();renderCoupon();renderSettings()};
