@@ -10,6 +10,6 @@
    先在该 Supabase 项目 SQL Editor 执行 supabase_sync.sql 建表脚本。
    ============================================================ */
 window.SUPABASE_CONFIG = {
-  url: '',
-  key: ''
+  url: 'https://ooqyttmnkhxkpmyltbyi.supabase.co',
+  key: 'sb_publishable_QRLtkWQxf2EzhEVyM3f49Q_-9mlQVy9'
 };
