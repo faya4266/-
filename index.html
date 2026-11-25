@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>语文打卡积分统计</title>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#fff; --text:#1f2937; --muted:#6b7280;
+  --line:#e5e7eb; --primary:#2563eb; --primary-light:#dbeafe;
+  --green:#16a34a; --green-light:#dcfce7; --red:#dc2626; --red-light:#fee2e2;
+  --orange:#ea580c; --orange-light:#ffedd5; --purple:#7c3aed; --purple-light:#ede9fe;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+button{cursor:pointer}
+.wrap{max-width:1200px;margin:0 auto;padding:0 16px 60px}
+
+/* 顶部 */
+.topbar{background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:18px 0 16px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.topbar .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px;margin-right:auto}
+.logo span{font-size:24px}
+.top-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.top-controls label{font-size:13px;opacity:.9}
+.top-controls select,.top-controls input[type=date]{border:none;border-radius:8px;padding:7px 10px;background:#fff;color:#1f2937;font-weight:600}
+.btn-top{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:7px 12px;font-weight:600;transition:.2s}
+.btn-top:hover{background:rgba(255,255,255,.3)}
+.btn-top.hl{background:#fff;color:#1d4ed8;border-color:#fff}
+
+/* 云端同步弹窗 */
+.mask{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:80;padding:20px}
+.mask.on{display:flex}
+.modal{background:#fff;border-radius:16px;padding:26px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:90vh;overflow:auto}
+.modal h2{margin-bottom:8px}
+.modal p,.modal .desc{color:var(--muted);font-size:14px;line-height:1.8;margin-bottom:12px}
+.modal .field{margin-bottom:12px}
+.modal .field label{display:block;font-weight:700;margin-bottom:6px;font-size:14px}
+.modal .field input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px}
+.modal .note{background:#f8fafc;border-left:4px solid var(--primary);border-radius:8px;padding:10px 13px;color:#475569;font-size:13px;line-height:1.7;margin-bottom:14px}
+
+/* 导航 */
+.nav{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.nav .wrap{display:flex;gap:4px;padding-bottom:0}
+.nav button{background:none;border:none;padding:14px 20px;color:var(--muted);font-weight:600;border-bottom:3px solid transparent;transition:.2s}
+.nav button:hover{color:var(--primary)}
+.nav button.active{color:var(--primary);border-bottom-color:var(--primary)}
+.page{display:none;padding-top:20px}
+.page.active{display:block}
+
+/* 通用卡片 */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+.card h2{font-size:17px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card .desc{color:var(--muted);font-size:13px;margin-bottom:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.badge.g{background:var(--green-light);color:var(--green)}
+.badge.r{background:var(--red-light);color:var(--red)}
+.badge.o{background:var(--orange-light);color:var(--orange)}
+.badge.p{background:var(--purple-light);color:var(--purple)}
+.badge.b{background:var(--primary-light);color:var(--primary)}
+
+/* 按钮 */
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 13px;font-weight:600;transition:.15s;color:var(--text)}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:#1d4ed8}
+.btn.green{background:var(--green);border-color:var(--green);color:#fff}
+.btn.green:hover{background:#15803d}
+.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+.btn.red:hover{background:#b91c1c}
+.btn.orange{background:var(--orange);border-color:var(--orange);color:#fff}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.danger{color:var(--red);border-color:#fecaca}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* 子标签 */
+.tabs{display:flex;gap:6px;margin-bottom:16px;background:#fff;padding:6px;border-radius:var(--radius);box-shadow:var(--shadow);overflow-x:auto}
+.tabs button{border:none;background:none;padding:9px 16px;border-radius:8px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tabs button.active{background:var(--primary);color:#fff}
+
+/* 小组卡片 */
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.group{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.group-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(90deg,#eff6ff,#fff);border-bottom:1px solid var(--line)}
+.group-head h3{font-size:15px}
+.group-head .score{margin-left:auto;font-weight:700;color:var(--primary)}
+.student{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid #f3f4f6}
+.student:last-child{border-bottom:none}
+.student .name{font-weight:600;min-width:64px;flex:1}
+.act{display:flex;gap:5px}
+.act button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;color:var(--muted);transition:.15s;white-space:nowrap}
+.act button:hover{border-color:var(--primary);color:var(--primary);background:#f8fafc}
+.act button.sel-plus{background:var(--green-light);border-color:#86efac;color:var(--green)}
+.act button.sel-minus{background:var(--red-light);border-color:#fca5a5;color:var(--red)}
+.act button.sel-zero{background:#f3f4f6;border-color:#d1d5db;color:#4b5563}
+.act button.plus-btn{background:var(--green-light);border-color:#86efac;color:var(--green)}
+.act button.minus-btn{background:var(--red-light);border-color:#fca5a5;color:var(--red)}
+.group-foot{padding:10px 16px;background:#fafafa;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* 统计表 */
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
+th{background:#f8fafc;font-weight:700;color:#374151;font-size:13px;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.rank{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:50%;background:#f3f4f6;font-weight:700;font-size:12px}
+.rank.top1{background:#fef3c7;color:#b45309}
+.rank.top2{background:#e5e7eb;color:#4b5563}
+.rank.top3{background:#ffedd5;color:#c2410c}
+.table-wrap{overflow-x:auto;border-radius:var(--radius)}
+
+/* 设置 */
+.set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.field{margin-bottom:12px}
+.field label{display:block;font-weight:600;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+.field textarea{min-height:180px;resize:vertical;font-family:ui-monospace,monospace;font-size:13px;line-height:1.7}
+.item-row{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6}
+.item-row input[type=text]{flex:1;border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+.item-row input[type=number]{width:64px;border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+
+/* 提示 */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1f2937;color:#fff;padding:11px 20px;border-radius:10px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;transition:.3s;z-index:100;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.empty{text-align:center;padding:40px;color:var(--muted)}
+.rule-box{background:#f8fafc;border:1px solid var(--line);border-left:4px solid var(--primary);border-radius:8px;padding:12px 14px;color:#4b5563;font-size:13px;line-height:1.8}
+.stat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:#fff;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.stat-card .label{color:var(--muted);font-size:12px}
+.stat-card .val{font-size:26px;font-weight:800;margin-top:4px;color:var(--primary)}
+.stat-card .val.g{color:var(--green)}
+.stat-card .val.o{color:var(--orange)}
+.log-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
+.log-item .t{color:var(--muted);width:130px;flex-shrink:0}
+.log-item .del{margin-left:auto;background:none;border:none;color:#9ca3af;font-size:16px}
+.log-item .del:hover{color:var(--red)}
+/* 周总表 */
+.wk-cell{text-align:center;font-size:12px;white-space:nowrap}
+.wk-cell.c-ok{background:var(--green-light);color:var(--green);font-weight:700}
+.wk-cell.c-no{background:var(--red-light);color:var(--red);font-weight:700}
+.wk-cell.c-mk{background:#f3f4f6;color:#4b5563}
+#wkMatrixTable th,#wkMatrixTable td{padding:8px 7px;font-size:12px}
+#wkMatrixTable th{text-align:center}
+#wkMatrixTable td:first-child,#wkMatrixTable td:nth-child(2){text-align:left}
+.date-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:12px}
+.date-bar input[type=date]{border:1px solid var(--line);border-radius:7px;padding:6px 8px;background:#fff}
+@media(max-width:640px){
+  .logo{font-size:17px;width:100%}
+  .nav button{padding:12px 12px;font-size:13px}
+  .student{flex-wrap:wrap}
+  .student .name{min-width:100%}
+  .act button{flex:1}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="logo"><span>📚</span> 语文打卡积分统计</div>
+    <div class="top-controls">
+      <label>班级</label>
+      <select id="classSel"></select>
+      <label>日期</label>
+      <input type="date" id="dateInput">
+      <span id="cloudChip" style="font-size:12px;opacity:.9">☁ 未连接</span>
+      <button class="btn-top hl" id="cloudBtn" title="导入 Supabase Project URL 和密钥，让多设备共用同一份数据">☁ 云端同步</button>
+      <button class="btn-top" id="openDisplay" title="打开只读展示屏，可在班级投屏给学生看">📺 展示屏</button>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="wrap">
+    <button data-page="checkin" class="active">✏️ 日常打卡</button>
+    <button data-page="weekly">📅 周总表</button>
+    <button data-page="stats">📊 积分统计</button>
+    <button data-page="coupon">🎫 免作业</button>
+    <button data-page="settings">⚙️ 设置</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ============ 打卡页 ============ -->
+<div id="page-checkin" class="page active">
+  <div class="tabs">
+    <button data-tab="homework" class="active">📝 日常作业</button>
+    <button data-tab="dictation">✍️ 默写听写过关</button>
+    <button data-tab="behavior">⭐ 课堂表现</button>
+  </div>
+
+  <div id="tab-homework">
+    <div class="card">
+      <h2>日常作业打卡 <span class="badge b" id="hwProgress"></span></h2>
+      <div class="desc">交 +1 分（日常积分）&nbsp;·&nbsp; 没交 −1 次免作业机会&nbsp;·&nbsp; 补 +0 分。再次点击可取消。每天可有多项作业，请先选择当前要打卡的作业。</div>
+      <div class="date-bar">
+        <label style="font-weight:600">打卡日期</label>
+        <input type="date" id="hwDateInput">
+        <button class="btn sm" data-daynav="-1">◀ 前一天</button>
+        <button class="btn sm" data-daynav="1">后一天 ▶</button>
+        <button class="btn sm" data-daynav="0">今天</button>
+        <span class="muted small">选择历史日期可查看或补录当天记录</span>
+      </div>
+      <div class="row" style="margin-bottom:12px">
+        <label style="font-weight:600">当前作业</label>
+        <select id="hwItemSel" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:180px"></select>
+        <button class="btn sm" id="hwAddQuick">+ 添加作业</button>
+        <label style="font-weight:600;margin-left:12px">没交扣分</label>
+        <select id="hwPenaltySel" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px">
+          <option value="1">−1 次</option><option value="2">−2 次</option><option value="3">−3 次</option>
+          <option value="4">−4 次</option><option value="5">−5 次</option><option value="10">−10 次</option>
+        </select>
+        <span class="muted small">扣免作业次数，可随时调整</span>
+      </div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn green sm" id="hwAllSubmit">全班一键"交"</button>
+        <button class="btn sm" id="hwClear">清除本项作业本日记录</button>
+        <div class="spacer"></div>
+        <span class="muted small" id="hwDateLabel"></span>
+      </div>
+    </div>
+    <div class="groups" id="hwGroups"></div>
+    <div class="card" style="margin-top:16px">
+      <h2>本日作业记录</h2>
+      <div class="desc">显示所选日期的全部作业打卡记录，可点击 ✕ 删除。</div>
+      <div id="hwLog"></div>
+    </div>
+  </div>
+
+  <div id="tab-dictation" style="display:none">
+    <div class="card">
+      <h2>默写听写过关 <span class="badge b" id="dicProgress"></span></h2>
+      <div class="desc">过关 +1 分（日常积分），未过关 −1 次免作业机会，其他 +0（不计分不扣分）。小组全部过关按批次给小组加分，同批同时过关的小组得相同名次分；各名次分值可在「设置」中修改。</div>
+      <div class="date-bar">
+        <label style="font-weight:600">打卡日期</label>
+        <input type="date" id="dicDateInput">
+        <button class="btn sm" data-daynav="-1">◀ 前一天</button>
+        <button class="btn sm" data-daynav="1">后一天 ▶</button>
+        <button class="btn sm" data-daynav="0">今天</button>
+        <span class="muted small">选择历史日期可查看或补录当天记录</span>
+      </div>
+      <div class="row" style="margin-bottom:12px">
+        <label style="font-weight:600">当前过关内容</label>
+        <select id="dictItemSel" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:180px"></select>
+        <button class="btn sm" id="dicAddQuick">+ 添加内容</button>
+      </div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn orange sm" id="dicBatch">✅ 批量标记同时过关</button>
+        <label style="font-weight:600;margin-left:6px">统一批次</label>
+        <select id="dicBatchRank" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px"></select>
+        <button class="btn sm" id="dicResetOrder">重置本项本日过关次序</button>
+        <div class="spacer"></div>
+        <span class="muted small" id="dicDateLabel"></span>
+      </div>
+      <div class="rule-box" id="passOrderBox"></div>
+    </div>
+    <div class="groups" id="dicGroups"></div>
+    <div class="card" style="margin-top:16px">
+      <h2>本日默写过关记录</h2>
+      <div class="desc">显示所选日期的个人过关记录与小组全部过关奖励，可点击 ✕ 删除个人记录。</div>
+      <div id="dicLog"></div>
+    </div>
+  </div>
+
+  <div id="tab-behavior" style="display:none">
+    <div class="card">
+      <h2>课堂表现加扣分</h2>
+      <div class="desc">选择加分/扣分项目后，点击学生对应的按钮即可记录，两个按钮都可多次点击（不自动取消）。加分计入日常积分，扣分直接扣免作业次数。项目可在"设置"中自定义。</div>
+      <div class="date-bar">
+        <label style="font-weight:600">打卡日期</label>
+        <input type="date" id="behDateInput">
+        <button class="btn sm" data-daynav="-1">◀ 前一天</button>
+        <button class="btn sm" data-daynav="1">后一天 ▶</button>
+        <button class="btn sm" data-daynav="0">今天</button>
+        <span class="muted small">选择历史日期可查看或补录当天记录</span>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <div style="flex:1;min-width:200px">
+          <label style="font-weight:600;display:block;margin-bottom:4px">加分项目</label>
+          <select id="behaviorAddSel" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px"></select>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <label style="font-weight:600;display:block;margin-bottom:4px">扣分项目</label>
+          <select id="behaviorSubSel" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px"></select>
+        </div>
+      </div>
+      <div id="behaviorHint" class="rule-box"></div>
+    </div>
+    <div class="groups" id="behGroups"></div>
+    <div class="card">
+      <h2>本日课堂表现记录 <span class="badge b" id="behLogDate"></span></h2>
+      <div id="behLog"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 周总表页 ============ -->
+<div id="page-weekly" class="page">
+  <div class="card">
+    <div class="row">
+      <h2 style="margin-right:auto">📅 周总表</h2>
+      <button class="btn sm" id="wkPrev">◀ 上一周</button>
+      <input type="date" id="wkDateInput" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px">
+      <button class="btn sm" id="wkNext">下一周 ▶</button>
+      <button class="btn sm" id="wkThis">本周</button>
+    </div>
+    <div class="desc" id="wkDesc" style="margin-top:10px;margin-bottom:0"></div>
+    <div class="row" style="margin-top:12px;flex-wrap:wrap">
+      <label style="font-weight:600">作业项目</label>
+      <select id="weekHwSel" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:140px"></select>
+      <label style="font-weight:600;margin-left:8px">默写内容</label>
+      <select id="weekDictSel" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:140px"></select>
+      <span class="muted small">选择任意日期即可切换到所在周，查看历史周记录</span>
+    </div>
+  </div>
+  <div class="stat-cards" id="wkCards"></div>
+  <div class="card">
+    <h2>每日提交情况汇总</h2>
+    <div class="desc">按周一至周日统计应交人数、已交、未交、补交及未记录人次。应交人数 = 当前班级名单总人数。</div>
+    <div class="table-wrap"><table id="wkDailyTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>学生每日作业明细</h2>
+    <div class="desc"><span style="color:var(--green);font-weight:700">✓ 交（+1）</span> · <span style="color:var(--red);font-weight:700">✗ 未交（−1）</span> · <b>补</b> 补交（0） · 空白表示当天未记录。</div>
+    <div class="table-wrap"><table id="wkMatrixTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>本周作业记录</h2>
+    <div class="desc">按日期倒序显示本周全部作业记录，可点击 ✕ 删除。</div>
+    <div id="wkLog"></div>
+  </div>
+
+  <div class="card" style="border-top:4px solid var(--orange)">
+    <h2>✍️ 默写听写过关 · 周统计</h2>
+    <div class="desc">按周一至周日统计每天过关、未过关、其他人次及小组全部过关奖励；下方为学生每日过关明细矩阵。</div>
+    <div class="stat-cards" id="wkDictCards"></div>
+    <div class="table-wrap"><table id="wkDictDailyTable"></table></div>
+    <h2 style="margin-top:20px">学生每日默写明细</h2>
+    <div class="desc"><span style="color:var(--green);font-weight:700">✓ 过关（+1）</span> · <span style="color:var(--red);font-weight:700">✗ 未过关（−1）</span> · <b>他</b> 其他（0） · 空白表示当天未记录。</div>
+    <div class="table-wrap"><table id="wkDictMatrixTable"></table></div>
+    <h2 style="margin-top:20px">本周默写过关记录</h2>
+    <div class="desc">按日期倒序显示本周默写记录及小组过关奖励，可点击 ✕ 删除。</div>
+    <div id="wkDictLog"></div>
+  </div>
+
+  <div class="card" style="border-top:4px solid var(--blue)">
+    <h2>⭐ 课堂表现 · 周统计</h2>
+    <div class="desc">按周一至周日统计每天加分次数、扣分次数、加分合计及扣分合计；下方为学生每日表现明细矩阵。</div>
+    <div class="stat-cards" id="wkBehCards"></div>
+    <div class="table-wrap"><table id="wkBehDailyTable"></table></div>
+    <h2 style="margin-top:20px">本周各表现项目统计</h2>
+    <div class="table-wrap"><table id="wkBehItemTable"></table></div>
+    <h2 style="margin-top:20px">学生每日表现明细</h2>
+    <div class="desc"><span style="color:var(--green);font-weight:700">+N</span> 加分合计 · <span style="color:var(--red);font-weight:700">−N</span> 扣分合计（数字为次数）。</div>
+    <div class="table-wrap"><table id="wkBehMatrixTable"></table></div>
+    <h2 style="margin-top:20px">本周课堂表现记录</h2>
+    <div class="desc">按日期倒序显示本周课堂表现加扣分记录，可点击 ✕ 删除。</div>
+    <div id="wkBehLog"></div>
+  </div>
+</div>
+
+<!-- ============ 统计页 ============ -->
+<div id="page-stats" class="page">
+  <div class="card">
+    <div class="row">
+      <h2 style="margin-right:auto">📊 积分统计</h2>
+      <div class="tabs" style="margin:0;padding:4px;box-shadow:none;background:#f3f4f6">
+        <button data-range="week" class="active">本周</button>
+        <button data-range="month">本月</button>
+        <button data-range="term">本学期</button>
+      </div>
+    </div>
+    <div class="desc" id="rangeDesc"></div>
+  </div>
+  <div class="stat-cards" id="statCards"></div>
+  <div class="card">
+    <h2>个人积分榜</h2>
+    <div class="desc">按所选时间范围的日常加分统计；扣分为该范围内扣减的免作业次数。</div>
+    <div class="table-wrap"><table id="studentTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>小组积分榜</h2>
+    <div class="desc">小组积分 = 组员日常加分 + 小组全部过关奖励分。</div>
+    <div class="table-wrap"><table id="groupTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>各作业完成情况</h2>
+    <div class="desc">按所选时间范围统计每项作业的应交、已交、未交、补交人次。</div>
+    <div class="table-wrap"><table id="hwStatTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>各默写过关内容完成情况</h2>
+    <div class="desc">按所选时间范围统计每项默写内容的过关、未过关、其他人次及全组过关奖励。</div>
+    <div class="table-wrap"><table id="dictStatTable"></table></div>
+  </div>
+</div>
+
+<!-- ============ 免作业页 ============ -->
+<div id="page-coupon" class="page">
+  <div class="card">
+    <h2>🎫 免作业次数（学期滚动累计）</h2>
+    <div class="rule-box">
+      规则：小组累计日常积分每满 <b>5 分</b> 折算 <b>1 次</b> 免作业机会，全组共享——小组折算 5 次，每位组员均获得 5 次。<br>
+      扣分直接扣减本人免作业次数；<b>兑换免作业时也会扣除相应次数</b>；老师还可手动给个人加/扣免作业机会。<br>
+      个人免作业次数 = 小组折算次数 − 个人被扣次数 − 已兑换次数 ＋ 老师手动调整（可为负，表示尚欠）。整个学期滚动累计，不按周/月清零。
+    </div>
+  </div>
+  <div class="stat-cards" id="couponCards"></div>
+  <div class="card">
+    <h2>✅ 免作业兑换</h2>
+    <div class="desc">学生使用免作业机会时点击"兑换"，将从其免作业次数中扣除。兑换记录可撤销。</div>
+    <div class="row" style="margin-bottom:12px">
+      <select id="redeemStudentSel" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 10px"></select>
+      <button class="btn primary" id="redeemBtn">兑换 1 次</button>
+    </div>
+    <div id="redeemLog"></div>
+  </div>
+  <div class="card">
+    <h2>🎛️ 个人机会灵活调整（老师手动加/扣）</h2>
+    <div class="desc">老师可针对个人灵活加减免作业机会，用于奖励、补偿或纪律处理。加/扣次数可自定义，可填写原因，记录可撤销。</div>
+    <div class="row" style="margin-bottom:10px;flex-wrap:wrap">
+      <select id="adjStudentSel" style="flex:1;min-width:170px;border:1px solid var(--line);border-radius:8px;padding:8px 10px"></select>
+      <select id="adjType" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px"><option value="add">➕ 加机会</option><option value="sub">➖ 扣机会</option></select>
+      <select id="adjNum" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>10</option></select>
+      <input type="text" id="adjReason" placeholder="原因（可选）" style="flex:1;min-width:120px;border:1px solid var(--line);border-radius:8px;padding:8px 10px">
+      <button class="btn primary" id="adjBtn">确认调整</button>
+    </div>
+    <div id="adjustLog"></div>
+  </div>
+  <div class="card">
+    <h2>小组折算明细</h2>
+    <div class="table-wrap"><table id="couponGroupTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>个人免作业明细</h2>
+    <div class="table-wrap"><table id="couponStudentTable"></table></div>
+  </div>
+</div>
+
+<!-- ============ 设置页 ============ -->
+<div id="page-settings" class="page">
+  <div class="set-grid">
+    <div class="card">
+      <h2>👥 分组名单管理</h2>
+      <div class="desc">名单已按 Excel 准确名单更新（803班6组、804班8组），陈亦朵、阙韵馨已删除。如需调整可直接修改。每行一名学生，空行表示空组。</div>
+      <div class="field">
+        <label>选择班级</label>
+        <select id="editClassSel"></select>
+      </div>
+      <div id="groupEditors"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="saveRoster">保存名单</button>
+        <button class="btn" id="addGroup">+ 添加小组</button>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>📝 日常作业项目</h2>
+        <div class="desc">每天可有多项作业，在此设置作业名称、增删项目。打卡时在作业页切换当前作业。</div>
+        <div id="homeworkEditor"></div>
+        <div class="row" style="margin-top:10px">
+          <input type="text" id="newHwName" placeholder="作业名称，如：周末试卷" style="flex:1;border:1px solid var(--line);border-radius:7px;padding:7px 9px">
+          <button class="btn primary sm" id="addHw">添加作业</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>✍️ 默写过关内容</h2>
+        <div class="desc">可添加多项过关内容（如生字听写、词语默写），打卡时切换当前内容，各项记录与全组过关奖励互相独立。改名会同步历史记录。</div>
+        <div id="dictationEditor"></div>
+        <div class="row" style="margin-top:10px">
+          <input type="text" id="newDictName" placeholder="过关内容名称，如：第三单元词语" style="flex:1;border:1px solid var(--line);border-radius:7px;padding:7px 9px">
+          <button class="btn primary sm" id="addDict">添加内容</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>🥇 小组过关名次加分</h2>
+        <div class="desc">小组全部过关按批次计名次，可自定义每个名次加几分（计入小组积分，5分折算1次免作业）。同批勾选的小组视为同时过关，得相同名次分。</div>
+        <div id="passScoreEditor"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn sm" id="addPassScore">+ 增加一个名次</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>⭐ 课堂表现项目</h2>
+        <div class="desc">加分项计入日常积分，扣分项扣免作业次数。</div>
+        <div id="behaviorEditor"></div>
+        <div class="row" style="margin-top:10px">
+          <input type="text" id="newBehName" placeholder="项目名称，如：积极发言" style="flex:1;border:1px solid var(--line);border-radius:7px;padding:7px 9px">
+          <select id="newBehType"><option value="add">加分</option><option value="sub">扣分</option></select>
+          <input type="number" id="newBehScore" value="1" min="1" max="10" style="width:60px;border:1px solid var(--line);border-radius:7px;padding:7px 9px">
+          <button class="btn primary sm" id="addBeh">添加</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>💾 数据管理</h2>
+        <div class="desc">数据保存在本机浏览器中。建议定期导出备份。</div>
+        <div class="row">
+          <button class="btn primary" id="exportData">导出备份</button>
+          <button class="btn" id="importBtn">导入备份</button>
+          <input type="file" id="importFile" accept=".json" style="display:none">
+          <button class="btn danger" id="clearData">清空所有数据</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>🔗 Supabase 共享数据库（可选）</h2>
+        <div class="desc">填入 Supabase Project URL 与 anon public key 后，教师端和展示屏会直连你的 Supabase；留空则继续使用当前云端同步。需先在 Supabase 执行提供的建表 SQL。</div>
+        <div class="field"><label>Project URL</label><input type="text" id="supaUrl" placeholder="https://xxxx.supabase.co"></div>
+        <div class="field"><label>anon public key</label><input type="password" id="supaKey" placeholder="eyJhbGciOi..."></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="supaSave">保存并连接</button>
+          <button class="btn" id="supaClear">切回默认云端</button>
+        </div>
+        <div class="desc" id="supaState" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<div class="mask" id="cloudMask">
+  <div class="modal">
+    <h2>☁️ 云端数据同步</h2>
+    <p>填入你的 Supabase 项目地址和密钥，教师端与展示屏会直连同一个数据库，<b>所有设备打开同一个链接即可共用同一份数据</b>。不填则继续使用默认云端同步。</p>
+    <div class="note">📌 如何获取：在 Supabase 项目后台 → <b>Project Settings → API</b>，复制 <b>Project URL</b> 和 <b>anon public</b> 密钥（不是 service_role）。使用请先在本项目执行已提供的 <b>supabase_sync.sql</b> 建表脚本。</div>
+    <div class="field"><label>Project URL</label><input type="text" id="cloudUrl" placeholder="https://xxxx.supabase.co" autocomplete="off"></div>
+    <div class="field"><label>anon public key</label><input type="password" id="cloudKey" placeholder="eyJhbGciOi..." autocomplete="off"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn primary" id="cloudSave">保存并连接</button>
+      <button class="btn" id="cloudTest">测试连接</button>
+      <button class="btn" id="cloudReset">切回默认云端</button>
+      <button class="btn" id="cloudClose">关闭</button>
+    </div>
+    <div class="desc" id="cloudState" style="margin-top:12px;white-space:pre-wrap;line-height:1.9"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>/* WorkBuddy Cloud SDK (inlined for share-link compatibility) */
+var WorkBuddyCloud=(()=>{var ie=Object.defineProperty;var _t=Object.getOwnPropertyDescriptor;var Tt=Object.getOwnPropertyNames;var Ot=Object.prototype.hasOwnProperty;var a=(r,e)=>ie(r,"name",{value:e,configurable:!0});var At=(r,e)=>{for(var t in e)ie(r,t,{get:e[t],enumerable:!0})},Rt=(r,e,t,s)=>{if(e&&typeof e=="object"||typeof e=="function")for(let n of Tt(e))!Ot.call(r,n)&&n!==t&&ie(r,n,{get:()=>e[n],enumerable:!(s=_t(e,n))||s.enumerable});return r};var $t=r=>Rt(ie({},"__esModule",{value:!0}),r);var nr={};At(nr,{AuthModule:()=>D,CLOUD_MODULE_PATHS:()=>R,CLOUD_PATH_PREFIX:()=>j,CloudOpenAIError:()=>x,CloudStoragePathError:()=>w,DEFAULT_SIGNED_URL_TTL_SECONDS:()=>ge,LlmModule:()=>M,MAX_SIGNED_URL_TTL_SECONDS:()=>ye,PUBLISHABLE_KEY_HEADER:()=>be,RUNTIME_STORAGE_BUCKET:()=>W,WorkBuddyCloudClient:()=>se,WorkBuddyCloudConfigError:()=>T,WorkBuddyDatabaseModule:()=>J,WorkBuddyStorageBucket:()=>H,WorkBuddyStorageDownload:()=>te,WorkBuddyStorageModule:()=>re,anonymousTokenProvider:()=>oe,createMemoryStorage:()=>ke,createWorkBuddyCloud:()=>vt,getModelCapability:()=>Oe,getModelDisplayName:()=>Te,shouldClearCredentials:()=>Pt});var T=class extends Error{static{a(this,"WorkBuddyCloudConfigError")}constructor(e){super(e),this.name="WorkBuddyCloudConfigError"}};var Ut=/^wbpk_/;function Le(r,e){if(typeof r!="string"||r.trim()==="")throw new T(`${e} is required and must be a non-empty string.`);let t=r.trim(),s;try{s=new URL(t)}catch{throw new T(`${e} must be an absolute URL, received: ${t}`)}if(s.protocol!=="https:"&&s.protocol!=="http:")throw new T(`${e} must use http(s), received protocol: ${s.protocol}`);return t.replace(/\/+$/,"")}a(Le,"normalizeHttpUrl");function It(r){if(r!=null&&r!=="")return Le(r,"endpoint");let e=globalThis.location?.origin;if(typeof e!="string"||e==="")throw new T("endpoint is required outside browsers (no location.origin to fall back to).");return e.replace(/\/+$/,"")}a(It,"resolveEndpoint");function Ct(r){if(typeof r!="string"||r.trim()==="")throw new T("publishableKey is required and must be a non-empty string.");let e=r.trim();if(!Ut.test(e))throw new T('publishableKey must start with "wbpk_".');return e}a(Ct,"normalizePublishableKey");function Lt(r){if(r)return r;if(typeof globalThis.fetch!="function")throw new T("Global fetch is unavailable in this runtime; pass options.fetch explicitly.");return globalThis.fetch.bind(globalThis)}a(Lt,"resolveFetch");function je(r){if(!r||typeof r!="object")throw new T("createWorkBuddyCloud requires publishableKey.");return Object.freeze({endpoint:It(r.endpoint),oauthRelayBaseUrl:r.oauthRelayBaseUrl?Le(r.oauthRelayBaseUrl,"oauthRelayBaseUrl"):"",publishableKey:Ct(r.publishableKey),fetch:Lt(r.fetch)})}a(je,"resolveRuntimeConfig");var be="x-wb-webapp-access-key";function we(r,e){return async(t,s)=>{let n=new Headers(s?.headers);if(n.set(be,r.publishableKey),!n.has("Authorization")){let i=await e();i&&n.set("Authorization",`Bearer ${i}`)}return r.fetch(t,{...s,headers:n})}}a(we,"createCloudFetch");var oe=a(()=>Promise.resolve(void 0),"anonymousTokenProvider");var j="/.cloud",R=Object.freeze({auth:`${j}/auth`,database:`${j}/database/rest`,storage:`${j}/storage`,llm:`${j}/llm`});var jt="workbuddy-cloud.pkce.workbuddy.",Bt="workbuddy-cloud.pkce-done.workbuddy.";function Be(r){let e="";for(let t of r)e+=String.fromCharCode(t);return btoa(e).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}a(Be,"base64UrlEncode");function De(){let r=globalThis.crypto;return typeof r?.getRandomValues=="function"&&typeof r?.subtle?.digest=="function"&&typeof globalThis.btoa=="function"}a(De,"hasWebCrypto");function Ne(){let r=new Uint8Array(32);return globalThis.crypto.getRandomValues(r),Be(r)}a(Ne,"createCodeVerifier");async function Me(r){let e=new TextEncoder().encode(r),t=await globalThis.crypto.subtle.digest("SHA-256",e);return Be(new Uint8Array(t))}a(Me,"computeS256Challenge");var ae=class{static{a(this,"WorkBuddyPkceStore")}verifierKey;consumedKey;constructor(e){this.verifierKey=jt+e,this.consumedKey=Bt+e}usable(){let e=this.storage();if(!e)return!1;try{let t=`${this.verifierKey}.probe`;return e.setItem(t,"1"),e.removeItem(t),!0}catch{return!1}}saveVerifier(e){try{let t=this.storage();return t?(t.setItem(this.verifierKey,e),t.removeItem(this.consumedKey),!0):!1}catch{return!1}}readVerifier(){try{return this.storage()?.getItem(this.verifierKey)??null}catch{return null}}clearVerifier(){try{this.storage()?.removeItem(this.verifierKey)}catch{}}markConsumed(e){try{this.storage()?.setItem(this.consumedKey,e)}catch{}}isConsumed(e){try{return!!e&&this.storage()?.getItem(this.consumedKey)===e}catch{return!1}}storage(){try{return globalThis.sessionStorage??null}catch{return null}}};var b={signUp:"/v1/signup",signIn:"/v1/signin",signInWithProvider:"/v1/signin/with/provider",token:"/v1/token",loginWechat:"/v1/login-wechat",loginWechatWeb:"/v1/login-wechat-web",loginWorkBuddy:"/v1/login-workbuddy",loginWorkBuddyMiniProgram:"/v1/login-workbuddy-miniprogram",signOut:"/v1/user/signout",userMe:"/v1/user/me",verification:"/v1/verification",verificationVerify:"/v1/verification/verify",resetPassword:"/v1/reset",sudo:"/v1/user/sudo",userPassword:"/v1/user/password"};function Se(r,e){let t=r??{},s=typeof t.access_token=="string"?t.access_token:"";if(!s)throw Mt("response has no access_token");let n=typeof t.refresh_token=="string"?t.refresh_token:"",i=typeof t.expires_in=="number"?t.expires_in:0;return{accessToken:s,refreshToken:n,expiresAt:e+i*1e3,user:Dt(t)}}a(Se,"parseSession");function Dt(r){let e=r.is_anonymous===!0;return{id:typeof r.sub=="string"?r.sub:"",name:O(r.name),avatarUrl:O(r.avatar_url),isAnonymous:e,raw:r}}a(Dt,"userFromSessionPayload");function Fe(r){let e=r??{},t=typeof e.sub=="string"?e.sub:typeof e.uid=="string"?e.uid:"",s=e.user_metadata??{};return{id:t,email:O(e.email)??O(s.email),phone:O(e.phone_number)??O(e.phone),name:O(e.name),avatarUrl:O(e.avatar_url),isAnonymous:e.is_anonymous===!0||e.scope==="anonymous",raw:e}}a(Fe,"parseUser");function O(r){return typeof r=="string"&&r!==""?r:void 0}a(O,"pickString");function qe(r,e){let t=e??{},s=typeof t.error=="string"?t.error:void 0,n=O(t.error_description)??O(t.message)??O(t.msg)??`HTTP ${r}`;return{kind:Nt(r,s),message:n,status:r,code:s,cause:e}}a(qe,"normalizeHttpError");function Nt(r,e){if(e==="invalid_grant")return"unauthenticated";switch(r){case 400:return"invalid-request";case 401:return"unauthenticated";case 403:return"permission-denied";case 404:return"not-found";case 429:return"rate-limited";case 501:return"unimplemented";case 503:return"backend-unavailable";default:return r>=500?"backend-unavailable":"unknown"}}a(Nt,"errorKind");function K(r){return{kind:"network",message:`request failed before a response was received: ${r instanceof Error?r.message:String(r)}`,status:0,cause:r}}a(K,"normalizeNetworkError");function Mt(r){let e=new Error(`workbuddy-cloud auth: ${r}`);return e.kind="unknown",e.status=0,e}a(Mt,"sessionShapeError");var ce=class{static{a(this,"SessionManager")}store;refresh;emit;isCredentialsRejected;now;inflight=null;signOutEpoch=0;lastFailure=null;constructor(e){this.store=e.store,this.refresh=e.refresh,this.emit=e.emit,this.isCredentialsRejected=e.isCredentialsRejected,this.now=e.now??Date.now}peek(){return this.store.read()}async ensure(){let e=this.store.read();return e?this.isExpiring(e)?e.refreshToken?this.refreshOnce(e):this.abandon():e:null}async forceRefresh(){let e=this.store.read();return e?.refreshToken?this.refreshOnce(e,{ignoreCooldown:!0}):null}commitSignIn(e){return this.lastFailure=null,this.store.write(e),this.emit("SIGNED_IN",e),e}commitUserUpdate(e){return this.store.write(e),this.emit("USER_UPDATED",e),e}clear(){this.signOutEpoch+=1,this.lastFailure=null,this.inflight=null,this.store.clear(),this.emit("SIGNED_OUT",null)}isExpiring(e){return typeof e.expiresAt!="number"?!0:e.expiresAt-this.now()<9e4}refreshOnce(e,t={}){if(this.inflight)return this.inflight;if(!t.ignoreCooldown&&this.inCooldown(e.refreshToken))return Promise.resolve(null);let s=this.doRefresh(e).finally(()=>{this.inflight=null});return this.inflight=s,s}inCooldown(e){let t=this.lastFailure;return t!==null&&t.token===e&&this.now()-t.at<6e4}async doRefresh(e){let t=this.signOutEpoch,s=e.refreshToken,n;try{n=await this.refresh(s)}catch(o){return this.onRefreshFailed(s,o)}if(this.signOutEpoch!==t)return this.store.clear(),null;let i=this.store.read();return i&&i.refreshToken!==s?i:(this.lastFailure=null,this.store.write(n),this.emit("TOKEN_REFRESHED",n),n)}onRefreshFailed(e,t){return this.isCredentialsRejected(t)?this.abandon():(this.lastFailure={token:e,at:this.now()},null)}abandon(){return this.store.clear(),this.lastFailure=null,this.emit("SIGNED_OUT",null),null}};var Ft="workbuddy-cloud.session.";function ke(){let r=new Map;return{getItem:a(e=>r.get(e)??null,"getItem"),setItem:a((e,t)=>{r.set(e,t)},"setItem"),removeItem:a(e=>{r.delete(e)},"removeItem")}}a(ke,"createMemoryStorage");function We(r){if(r)return r;try{let e="__workbuddy_probe__";return globalThis.localStorage.setItem(e,"1"),globalThis.localStorage.removeItem(e),globalThis.localStorage}catch{return ke()}}a(We,"resolveStorage");var ue=class{static{a(this,"SessionStore")}storage;key;constructor(e,t){this.storage=e,this.key=Ft+t}read(){let e;try{e=this.storage.getItem(this.key)}catch{return null}if(!e)return null;try{let t=JSON.parse(e);return qt(t)?t:this.discard()}catch{return this.discard()}}write(e){try{this.storage.setItem(this.key,JSON.stringify(e))}catch{}}clear(){try{this.storage.removeItem(this.key)}catch{}}discard(){return this.clear(),null}};function qt(r){if(!r||typeof r!="object")return!1;let e=r;return typeof e.accessToken=="string"&&e.accessToken!==""&&typeof e.refreshToken=="string"&&typeof e.expiresAt=="number"&&!!e.user&&typeof e.user=="object"}a(qt,"isStoredSession");function B(r,e){let t=r.email??"",s=r.phone??"";return!!t==!!s?{data:null,error:{kind:"invalid-request",message:`${e} requires exactly one of email or phone`,status:0}}:{data:t?{kind:"email",value:t,username:t}:{kind:"phone",value:s,username:Wt(s)},error:null}}a(B,"resolveAuthIdentifier");function Wt(r){let t=r.replace(/\D/g,"");return t.startsWith("0086")?t=t.slice(4):t.startsWith("86")&&t.length===13&&(t=t.slice(2)),/^1\d{10}$/.test(t)?`+86 ${t}`:r}a(Wt,"normalizePhone");var He="wx907c65e5e107ddcf",Ht="subpackages/secondary/oauth-authorize/index";var de=class{static{a(this,"WorkBuddyMiniProgramAuth")}storage;platform;exchange;key;starting;exchanges=new Map;constructor(e,t,s,n){this.storage=t,this.platform=s,this.exchange=n,this.key=`workbuddy-cloud.miniprogram-workbuddy.${e}`}async signIn(e){if(this.starting)return this.starting;let t=this.start(e);this.starting=t;try{return await t}finally{this.starting=void 0}}async start(e){if(typeof e?.redirectPath!="string"||!e.redirectPath.trim())return P("invalid_request","WorkBuddy login requires redirectPath");let t=this.platform.applicationId;if(typeof t!="string"||!t.trim())return P("invalid_request","WorkBuddy login requires publicConfig.workBuddyOAuthClientId");try{let s=this.platform.getEnvVersion?.(),n=await this.platform.createState(),i={state:n,appId:He,expiresAt:Date.now()+6e5},o=JSON.stringify(i);if(this.storage.setItem(this.key,o),this.storage.getItem(this.key)!==o)return P("storage_unavailable","Could not persist WorkBuddy login; sign in again");let c=await this.platform.navigate({appId:He,path:`${Ht}?client_id=${encodeURIComponent(t)}&redirect_uri=${encodeURIComponent(e.redirectPath)}&state=${encodeURIComponent(n)}`+(s?`&envVersion=${s}`:""),envVersion:"release"});return c.error&&this.storage.removeItem(this.key),c}catch(s){return P("miniprogram_login_failed",xe(s))}}async handleCallback(e){let t=e?.referrerInfo,s=Ke(t?.extraData);if(!s||!s.code&&!s.error)return{data:null,error:null};let n=typeof s.state=="string"?this.exchanges.get(s.state):void 0;if(n)return t?.appId===n.appId?n.task:P("invalid_request","WorkBuddy callback does not match the login source");let i;try{i=this.readPending()}catch(c){return P("storage_unavailable",xe(c))}if(!i)return{data:null,error:null};if(typeof s.state!="string"||!s.state)return P("invalid_request","WorkBuddy callback requires state");if(t?.appId!==i.appId||s.state!==i.state)return P("invalid_request","WorkBuddy callback does not match the login source or state");if(!(typeof s.code=="string"&&s.code)&&!(typeof s.error=="string"&&s.error))return P("invalid_request","WorkBuddy callback has no authorization code");if(!s.error&&(typeof s.redirect_uri!="string"||!s.redirect_uri.trim()))return P("invalid_request","WorkBuddy callback requires redirect_uri");try{if(this.storage.removeItem(this.key),this.storage.getItem(this.key)!==null)return P("storage_unavailable","Could not consume WorkBuddy login; sign in again")}catch(c){return P("storage_unavailable",xe(c))}if(i.expiresAt<=Date.now())return P("invalid_grant","WorkBuddy login expired; sign in again","unauthenticated");if(s.error)return P(String(s.error),typeof s.error_description=="string"?s.error_description:"WorkBuddy authorization was not completed","permission-denied");let o=this.exchange({code:s.code,state:i.state,shortlink:s.redirect_uri});this.exchanges.set(i.state,{appId:i.appId,task:o});try{return await o}finally{this.exchanges.delete(i.state)}}readPending(){let e=this.storage.getItem(this.key);if(!e)return null;let t=Ke(JSON.parse(e));if(!t||typeof t.state!="string"||typeof t.appId!="string"||typeof t.expiresAt!="number")throw new Error("Invalid saved WorkBuddy login; sign in again");return t}};function Ke(r){return r!==null&&typeof r=="object"&&!Array.isArray(r)?r:null}a(Ke,"record");function P(r,e,t="invalid-request"){return{data:null,error:{kind:t,code:r,message:e,status:0}}}a(P,"failure");function xe(r){return r instanceof Error?r.message:String(r)}a(xe,"describe");var Ge=200;function Je(r,e){let t=Array.from(r);return t.length<=e?r:`${t.slice(0,e).join("")}\u2026`}a(Je,"truncateMessage");function Ee(r){let e=r.get("error");if(!e)return null;let t=r.get("error_description"),s=t?`oauth provider rejected the request: ${e}: ${t}`:`oauth provider rejected the request: ${e}`;return Je(s,Ge)}a(Ee,"oauthProviderRejectMessage");var D=class{static{a(this,"AuthModule")}fetch;baseUrl;sessions;storage;oauthRelayBaseUrl;workBuddyPkce;workBuddyMiniProgram;workBuddyExchanges=new Map;listeners=new Map;nextListenerId=1;constructor(e,t,s={}){this.fetch=t,this.baseUrl=`${e.endpoint}${R.auth}`,this.oauthRelayBaseUrl=e.oauthRelayBaseUrl,this.storage=We(s.storage),this.workBuddyPkce=new ae(e.publishableKey),this.sessions=new ce({store:new ue(this.storage,e.publishableKey),refresh:a(n=>this.exchangeRefreshHandle(n),"refresh"),emit:a((n,i)=>this.notify(n,i),"emit"),isCredentialsRejected:a(n=>le(n)&&Ve(n),"isCredentialsRejected")}),s.workBuddyMiniProgram&&(this.workBuddyMiniProgram=new de(e.publishableKey,this.storage,s.workBuddyMiniProgram,n=>this.postForSession(b.loginWorkBuddyMiniProgram,n)))}async getAccessToken(){return(await this.sessions.ensure())?.accessToken}async signInWithWorkBuddyMiniProgram(e){return this.workBuddyMiniProgram?this.workBuddyMiniProgram.signIn(e):h({kind:"unimplemented",status:0,message:"Use createMiniProgramWorkBuddyCloud for WorkBuddy mini program login"})}async handleWorkBuddyMiniProgramCallback(e){return this.workBuddyMiniProgram?this.workBuddyMiniProgram.handleCallback(e):h({kind:"unimplemented",status:0,message:"Use createMiniProgramWorkBuddyCloud for WorkBuddy mini program login"})}async signInWithPassword(e){if(!e.password)return h(p("signInWithPassword requires a password"));let t=B(e,"signInWithPassword");return t.error?h(t.error):this.postForSession(b.signIn,{username:t.data.username,password:e.password})}async signInWithWechat(e,t){return e?t?this.postForSession(b.loginWechat,{code:e,appid:t}):h(p("signInWithWechat requires appid")):h(p("signInWithWechat requires code"))}async signUp(e){let t=B(e,"signUp");if(t.error)return h(t.error);if(!e.verificationToken)return h(p("signUp requires a verificationToken; run sendOtp + verifyOtp first (the provider rejects username+password-only signup)"));let s={verification_token:e.verificationToken};return t.data.kind==="phone"?s.phone_number=t.data.username:s.email=t.data.username,e.password&&(s.password=e.password),this.postForSession(b.signUp,s)}async sendOtp(e){let t=B(e,"sendOtp");if(t.error)return h(t.error);let s={};t.data.kind==="phone"?(s.phone_number=t.data.username,s.target="ANY"):(s.email=t.data.username,s.usage="email",e.emailRedirectTo&&(s.email_redirect_to=e.emailRedirectTo));let n=await this.request(b.verification,{method:"POST",body:s});if(n.error)return h(n.error);let i=n.data??{},o=typeof i.verification_id=="string"?i.verification_id:"";return o?S({verificationId:o,isExistingUser:i.is_user===!0}):h(p("provider returned no verification_id"))}async signInWithOtp(e){let t=B(e,"signInWithOtp");if(t.error)return h(t.error);let s=await this.sendOtp(e);if(s.error)return h(s.error);let{verificationId:n,isExistingUser:i}=s.data,o=t.data.kind==="phone"?{phone:t.data.username}:{email:t.data.username};return S({verificationId:n,isExistingUser:i,isUser:i,verify:a(({token:c,password:u})=>this.verifyOtp({verificationId:n,token:c,...o,isExistingUser:i,password:u}),"verify")})}async verifyOtp(e){let t=B(e,"verifyOtp");if(t.error)return h(t.error);if(!e.verificationId||!e.token)return h(p("verifyOtp requires verificationId and token"));let s=await this.request(b.verificationVerify,{method:"POST",body:{verification_id:e.verificationId,verification_code:e.token}});if(s.error)return h(s.error);let n=s.data??{},i=typeof n.verification_token=="string"?n.verification_token:"";if(!i)return h(p("provider returned no verification_token"));if(e.isExistingUser)return this.postForSession(b.signIn,{username:t.data.username,verification_token:i});let o=t.data.kind==="phone"?{phone:t.data.value,password:e.password}:{email:t.data.value,password:e.password};return this.signUp({...o,verificationToken:i})}async signInWithOAuth(e){if(!this.oauthRelayBaseUrl)return h(p("signInWithOAuth requires oauthRelayBaseUrl"));if(e.provider!=="google"&&e.provider!=="wechat"&&e.provider!=="workbuddy")return h(p("\u5F53\u524D SDK \u4E0D\u652F\u6301\u8BE5\u767B\u5F55\u65B9\u5F0F\uFF0C\u8BF7\u68C0\u67E5 SDK \u7248\u672C\u4E0E\u767B\u5F55\u914D\u7F6E\u3002"));let t=e.redirectTo??zt();return t?this.startRelayOAuth(e,t):h(p("signInWithOAuth requires redirectTo outside a browser environment"))}parseCallbackQuery(e){try{let t=/^https?:\/\//i.test(e)?new URL(e).search:e;return S(new URLSearchParams(t))}catch{return h(p("oauth callback URL is invalid"))}}async handleOAuthCallback(e){let t=this.parseCallbackQuery(e??ve());if(t.error||!t.data)return h(t.error??p("oauth callback URL is invalid"));let s=t.data,n=Ee(s);if(n)return h({kind:"unauthenticated",message:n,status:0});let i=s.get("code");if(!i)return S(null);let o=s.get("state")??"";if(!o)return h(p("oauth callback requires state"));let c=s.get("provider_id");if(c!=="custom-oauth")return h(p("oauth callback requires provider_id=custom-oauth"));let u={provider_id:c,provider_code:i,state:o,provider_params:{state:o}};return this.postForSession(b.signInWithProvider,u)}async handleWechatWebCallback(e){let t=this.parseCallbackQuery(e??ve());if(t.error||!t.data)return h(t.error??p("oauth callback URL is invalid"));let s=t.data,n=Ee(s);if(n)return h({kind:"unauthenticated",message:n,status:0});let i=s.get("code");if(!i)return S(null);let o=s.get("state")??"";if(!o)return h(p("oauth callback requires state"));let c=s.get("provider");return c&&c!=="wechat"?h(p("wechat callback requires provider=wechat")):s.get("provider_id")==="custom-oauth"?h(p("wechat callback must not use provider_id=custom-oauth")):this.postForSession(b.loginWechatWeb,{code:i,state:o})}async handleWorkBuddyCallback(e){let t=this.parseCallbackQuery(e??ve());if(t.error||!t.data)return h(t.error??p("oauth callback URL is invalid"));let s=t.data,n=s.get("provider");if(n&&n!=="workbuddy")return S(null);let i=Ee(s);if(i)return this.workBuddyPkce.clearVerifier(),h({kind:"unauthenticated",message:i,status:0});let o=s.get("code");if(!o)return S(null);let c=s.get("state")??"";if(!c)return h(p("workbuddy callback requires state"));if(s.get("provider_id")==="custom-oauth")return h(p("workbuddy callback must not use provider_id=custom-oauth"));if(this.workBuddyPkce.isConsumed(c))return S(null);let u=this.workBuddyExchanges.get(c);if(u)return u;let d=this.workBuddyPkce.readVerifier();if(!d)return h(p("workbuddy callback has no local PKCE verifier; sign in again in this tab"));this.workBuddyPkce.clearVerifier();let l=this.exchangeWorkBuddyCode(o,c,d);this.workBuddyExchanges.set(c,l);try{return await l}finally{this.workBuddyExchanges.delete(c)}}async exchangeWorkBuddyCode(e,t,s){let n=await this.postForSession(b.loginWorkBuddy,{code:e,state:t,code_verifier:s});return n.data&&this.workBuddyPkce.markConsumed(t),n}async resetPasswordForEmail(e){if(!e)return h(p("resetPasswordForEmail requires email"));let t=await this.request(b.verification,{method:"POST",body:{email:e,usage:"PASSWORD_RESET",target:"USER"}});if(t.error)return h(t.error);let s=t.data??{},n=typeof s.verification_id=="string"?s.verification_id:"";return n?S({updateUser:a(async({nonce:i,password:o})=>{let c=await this.request(b.verificationVerify,{method:"POST",body:{verification_id:n,verification_code:i}});if(c.error)return h(c.error);let u=c.data??{},d=typeof u.verification_token=="string"?u.verification_token:"";if(!d)return h(p("provider returned no verification_token"));let l=await this.request(b.resetPassword,{method:"POST",body:{email:e,new_password:o,verification_token:d}});if(l.error)return h(l.error);let f=await this.signInWithPassword({email:e,password:o});return f.error||this.notify("PASSWORD_RECOVERY",f.data),f},"updateUser")}):h(p("provider returned no verification_id"))}async resetPasswordForOld(e){let t=await this.getAccessToken();if(!t)return h({kind:"unauthenticated",message:"no active session",status:0});let s=await this.request(b.sudo,{method:"POST",token:t,body:{password:e.oldPassword}});if(s.error)return h(s.error);let n=s.data??{},i=typeof n.sudo_token=="string"?n.sudo_token:"";if(!i)return h(p("provider returned no sudo_token"));let o=await this.request(b.userPassword,{method:"PATCH",token:t,body:{sudo_token:i,new_password:e.newPassword}});if(o.error)return h(o.error);let c=await this.getSession();return c.data?(this.notify("USER_UPDATED",c.data),S(c.data)):h(c.error??{kind:"unauthenticated",message:"no active session",status:0})}async getSession(){try{return S(await this.sessions.ensure())}catch(e){return h(le(e)?e:K(e))}}async refreshSession(){try{return S(await this.sessions.forceRefresh())}catch(e){return h(le(e)?e:K(e))}}async getUser(){let e=await this.getAccessToken();if(!e)return h({kind:"unauthenticated",message:"no active session",status:0});let t=await this.request(b.userMe,{method:"GET",token:e});return t.error?(Ve(t.error)&&this.sessions.clear(),h(t.error)):S(Fe(t.data))}async signOut(){let e=this.sessions.peek();return e?.accessToken&&await this.request(b.signOut,{method:"POST",body:{},token:e.accessToken}),this.sessions.clear(),S(null)}onAuthStateChange(e){let t=this.nextListenerId++;return this.listeners.set(t,e),ze(e,"INITIAL_SESSION",this.sessions.peek()),()=>{this.listeners.delete(t)}}async startRelayOAuth(e,t){let s;try{s=new URL(t)}catch{return h(p("signInWithOAuth requires an absolute redirectTo URL"))}let n=new URL(`${this.oauthRelayBaseUrl}/authorize`);if(n.searchParams.set("provider",e.provider),n.searchParams.set("callback_url",s.toString()),e.provider==="workbuddy"){let i=await this.createWorkBuddyProof();if(i.error||!i.data)return h(i.error??p("signInWithOAuth could not create PKCE"));n.searchParams.set("code_challenge",i.data),n.searchParams.set("code_challenge_method","S256")}return S({url:n.toString()})}async createWorkBuddyProof(){if(!De())return h(p("workbuddy sign-in requires WebCrypto; it is unavailable in this runtime (an insecure http:// origin disables it \u2014 serve the app over https)"));if(!this.workBuddyPkce.usable())return h(p("workbuddy sign-in requires sessionStorage to keep the PKCE verifier across the redirect; it is unavailable in this runtime"));let e,t;try{e=Ne(),t=await Me(e)}catch(s){return h(p(`workbuddy sign-in could not create a PKCE proof: ${Kt(s)}`))}return this.workBuddyPkce.saveVerifier(e)?S(t):h(p("workbuddy sign-in could not persist the PKCE verifier"))}async exchangeRefreshHandle(e){let t=await this.request(b.token,{method:"POST",body:{grant_type:"refresh_token",refresh_token:e}});if(t.error)throw t.error;return Se(t.data,Date.now())}async postForSession(e,t,s={}){let n=await this.request(e,{method:"POST",body:t,headers:s.headers});if(n.error)return h(n.error);try{return S(this.sessions.commitSignIn(Se(n.data,Date.now())))}catch(i){return h(le(i)?i:K(i))}}async request(e,t){let s={...t.headers};t.body!==void 0&&(s["Content-Type"]="application/json"),t.token&&(s.Authorization=`Bearer ${t.token}`);let n;try{n=await this.fetch(this.baseUrl+e,{method:t.method,headers:s,body:t.body===void 0?void 0:JSON.stringify(t.body)})}catch(o){return h(K(o))}let i=await Vt(n);return n.ok?S(i):h(qe(n.status,i))}notify(e,t){for(let s of this.listeners.values())ze(s,e,t)}};function S(r){return{data:r,error:null}}a(S,"ok");function h(r){return{data:null,error:r}}a(h,"fail");function p(r){return{kind:"invalid-request",message:r,status:0}}a(p,"badRequest");function Kt(r){return Je(r instanceof Error?r.message:String(r),Ge)}a(Kt,"describeError");function le(r){return!!r&&typeof r=="object"&&typeof r.kind=="string"}a(le,"isCloudError");function Ve(r){return r.kind==="unauthenticated"||r.code==="invalid_grant"}a(Ve,"rejectedCredentials");async function Vt(r){let e=await r.text();if(!e)return null;try{return JSON.parse(e)}catch{return{message:e}}}a(Vt,"readBody");function ze(r,e,t){try{r(e,t)}catch{}}a(ze,"safeInvoke");function zt(){let r=globalThis.location;return r?r.origin+r.pathname:""}a(zt,"currentPageUrl");function ve(){return globalThis.location?.search??""}a(ve,"currentPageSearch");var Pe=a(r=>Math.min(1e3*2**r,3e4),"getRetryDelay"),Ye=[520,503],_e=["GET","HEAD","OPTIONS"];var I=class extends Error{static{a(this,"PostgrestError")}details;hint;code;constructor(e){super(e.message),this.name="PostgrestError",this.details=e.details,this.hint=e.hint,this.code=e.code}toJSON(){return{name:this.name,message:this.message,details:this.details,hint:this.hint,code:this.code}}};function Xe(r,e){return new Promise(t=>{if(e?.aborted){t();return}let s=setTimeout(()=>{e?.removeEventListener("abort",n),t()},r);function n(){clearTimeout(s),t()}a(n,"onAbort"),e?.addEventListener("abort",n)})}a(Xe,"sleep");function Gt(r,e,t,s){return!(!s||t>=3||!_e.includes(r)||!Ye.includes(e))}a(Gt,"shouldRetry");var V=class{static{a(this,"PostgrestBuilder")}method;url;headers;schema;body;shouldThrowOnError=!1;signal;fetch;isMaybeSingle;shouldStripNulls;urlLengthLimit;retryEnabled=!0;constructor(e){this.method=e.method,this.url=e.url,this.headers=new Headers(e.headers),this.schema=e.schema,this.body=e.body,this.shouldThrowOnError=e.shouldThrowOnError??!1,this.signal=e.signal,this.isMaybeSingle=e.isMaybeSingle??!1,this.shouldStripNulls=e.shouldStripNulls??!1,this.urlLengthLimit=e.urlLengthLimit??8e3,this.retryEnabled=e.retry??!0,e.fetch?this.fetch=e.fetch:this.fetch=fetch}throwOnError(){return this.shouldThrowOnError=!0,this}stripNulls(){if(this.headers.get("Accept")==="text/csv")throw new Error("stripNulls() cannot be used with csv()");return this.shouldStripNulls=!0,this}setHeader(e,t){return this.headers=new Headers(this.headers),this.headers.set(e,t),this}retry(e){return this.retryEnabled=e,this}then(e,t){if(this.schema===void 0||(["GET","HEAD"].includes(this.method)?this.headers.set("Accept-Profile",this.schema):this.headers.set("Content-Profile",this.schema)),this.method!=="GET"&&this.method!=="HEAD"&&this.headers.set("Content-Type","application/json"),this.shouldStripNulls){let o=this.headers.get("Accept");o==="application/vnd.pgrst.object+json"?this.headers.set("Accept","application/vnd.pgrst.object+json;nulls=stripped"):(!o||o==="application/json")&&this.headers.set("Accept","application/vnd.pgrst.array+json;nulls=stripped")}let s=this.fetch,i=a(async()=>{let o=0;for(;;){let c={};this.headers.forEach((d,l)=>{c[l]=d}),o>0&&(c["X-Retry-Count"]=String(o));let u;try{u=await s(this.url.toString(),{method:this.method,headers:c,body:JSON.stringify(this.body,(d,l)=>typeof l=="bigint"?l.toString():l),signal:this.signal})}catch(d){if(d?.name==="AbortError"||d?.code==="ABORT_ERR"||!_e.includes(this.method))throw d;if(this.retryEnabled&&o<3){let l=Pe(o);o++,await Xe(l,this.signal);continue}throw d}if(Gt(this.method,u.status,o,this.retryEnabled)){let d=u.headers?.get("Retry-After")??null,l=d!==null?Math.max(0,parseInt(d,10)||0)*1e3:Pe(o);await u.text(),o++,await Xe(l,this.signal);continue}return await this.processResponse(u)}},"executeWithRetry")();return this.shouldThrowOnError||(i=i.catch(o=>{let c="",u="",d="",l=o?.cause;if(l){let g=l?.message??"",y=l?.code??"";c=`${o?.name??"FetchError"}: ${o?.message}`,c+=`
+
+Caused by: ${l?.name??"Error"}: ${g}`,y&&(c+=` (${y})`),l?.stack&&(c+=`
+${l.stack}`)}else c=o?.stack??"";let f=this.url.toString().length;return o?.name==="AbortError"||o?.code==="ABORT_ERR"?(d="",u="Request was aborted (timeout or manual cancellation)",f>this.urlLengthLimit&&(u+=`. Note: Your request URL is ${f} characters, which may exceed server limits. If selecting many fields, consider using views. If filtering with large arrays (e.g., .in('id', [many IDs])), consider using an RPC function to pass values server-side.`)):(l?.name==="HeadersOverflowError"||l?.code==="UND_ERR_HEADERS_OVERFLOW")&&(d="",u="HTTP headers exceeded server limits (typically 16KB)",f>this.urlLengthLimit&&(u+=`. Your request URL is ${f} characters. If selecting many fields, consider using views. If filtering with large arrays (e.g., .in('id', [200+ IDs])), consider using an RPC function instead.`)),{success:!1,error:{message:`${o?.name??"FetchError"}: ${o?.message}`,details:c,hint:u,code:d},data:null,count:null,status:0,statusText:""}})),i.then(e,t)}async processResponse(e){let t=null,s=null,n=null,i=e.status,o=e.statusText;if(e.ok){if(this.method!=="HEAD"){let d=await e.text();if(d!=="")if(this.headers.get("Accept")==="text/csv")s=d;else if(this.headers.get("Accept")&&this.headers.get("Accept")?.includes("application/vnd.pgrst.plan+text"))s=d;else try{s=JSON.parse(d)}catch{if(t={message:d},s=null,this.shouldThrowOnError)throw new I({message:d,details:"",hint:"",code:""})}}let c=this.headers.get("Prefer")?.match(/count=(exact|planned|estimated)/),u=e.headers.get("content-range")?.split("/");if(c&&u&&u.length>1&&(n=parseInt(u[1])),this.isMaybeSingle&&Array.isArray(s))if(s.length>1){if(t={code:"PGRST116",details:`Results contain ${s.length} rows, application/vnd.pgrst.object+json requires 1 row`,hint:null,message:"JSON object requested, multiple (or no) rows returned"},s=null,n=null,i=406,o="Not Acceptable",this.shouldThrowOnError)throw new I({...t,hint:t.hint??""})}else s.length===1?s=s[0]:s=null}else{let c=await e.text();try{t=JSON.parse(c),Array.isArray(t)&&e.status===404&&(s=[],t=null,i=200,o="OK")}catch{e.status===404&&c===""?(i=204,o="No Content"):t={message:c}}if(t&&this.shouldThrowOnError)throw new I(t)}return{success:t===null,error:t,data:s,count:n,status:i,statusText:o}}returns(){return this}overrideTypes(){return this}};var z=class extends V{static{a(this,"PostgrestTransformBuilder")}throwOnError(){return super.throwOnError()}select(e){let t=!1,s=(e??"*").split("").map(n=>/\s/.test(n)&&!t?"":(n==='"'&&(t=!t),n)).join("");return this.url.searchParams.set("select",s),this.headers.append("Prefer","return=representation"),this}order(e,{ascending:t=!0,nullsFirst:s,foreignTable:n,referencedTable:i=n}={}){let o=i?`${i}.order`:"order",c=this.url.searchParams.get(o);return this.url.searchParams.set(o,`${c?`${c},`:""}${e}.${t?"asc":"desc"}${s===void 0?"":s?".nullsfirst":".nullslast"}`),this}limit(e,{foreignTable:t,referencedTable:s=t}={}){let n=typeof s>"u"?"limit":`${s}.limit`;return this.url.searchParams.set(n,`${e}`),this}range(e,t,{foreignTable:s,referencedTable:n=s}={}){let i=typeof n>"u"?"offset":`${n}.offset`,o=typeof n>"u"?"limit":`${n}.limit`;return this.url.searchParams.set(i,`${e}`),this.url.searchParams.set(o,`${t-e+1}`),this}abortSignal(e){return this.signal=e,this}single(){return this.headers.set("Accept","application/vnd.pgrst.object+json"),this}maybeSingle(){return this.isMaybeSingle=!0,this}csv(){return this.headers.set("Accept","text/csv"),this}geojson(){return this.headers.set("Accept","application/geo+json"),this}explain({analyze:e=!1,verbose:t=!1,settings:s=!1,buffers:n=!1,wal:i=!1,format:o="text"}={}){let c=[e?"analyze":null,t?"verbose":null,s?"settings":null,n?"buffers":null,i?"wal":null].filter(Boolean).join("|"),u=this.headers.get("Accept")??"application/json";return this.headers.set("Accept",`application/vnd.pgrst.plan+${o}; for="${u}"; options=${c};`),o==="json"?this:this}rollback(){return this.headers.append("Prefer","tx=rollback"),this}returns(){return this}maxAffected(e){return this.headers.append("Prefer","handling=strict"),this.headers.append("Prefer",`max-affected=${e}`),this}};var Ze=new RegExp("[,()]"),A=class extends z{static{a(this,"PostgrestFilterBuilder")}throwOnError(){return super.throwOnError()}eq(e,t){return this.url.searchParams.append(e,`eq.${t}`),this}neq(e,t){return this.url.searchParams.append(e,`neq.${t}`),this}gt(e,t){return this.url.searchParams.append(e,`gt.${t}`),this}gte(e,t){return this.url.searchParams.append(e,`gte.${t}`),this}lt(e,t){return this.url.searchParams.append(e,`lt.${t}`),this}lte(e,t){return this.url.searchParams.append(e,`lte.${t}`),this}like(e,t){return this.url.searchParams.append(e,`like.${t}`),this}likeAllOf(e,t){return this.url.searchParams.append(e,`like(all).{${t.join(",")}}`),this}likeAnyOf(e,t){return this.url.searchParams.append(e,`like(any).{${t.join(",")}}`),this}ilike(e,t){return this.url.searchParams.append(e,`ilike.${t}`),this}ilikeAllOf(e,t){return this.url.searchParams.append(e,`ilike(all).{${t.join(",")}}`),this}ilikeAnyOf(e,t){return this.url.searchParams.append(e,`ilike(any).{${t.join(",")}}`),this}regexMatch(e,t){return this.url.searchParams.append(e,`match.${t}`),this}regexIMatch(e,t){return this.url.searchParams.append(e,`imatch.${t}`),this}is(e,t){return this.url.searchParams.append(e,`is.${t}`),this}isDistinct(e,t){return this.url.searchParams.append(e,`isdistinct.${t}`),this}in(e,t){let s=Array.from(new Set(t)).map(n=>typeof n=="string"&&Ze.test(n)?`"${n}"`:`${n}`).join(",");return this.url.searchParams.append(e,`in.(${s})`),this}notIn(e,t){let s=Array.from(new Set(t)).map(n=>typeof n=="string"&&Ze.test(n)?`"${n}"`:`${n}`).join(",");return this.url.searchParams.append(e,`not.in.(${s})`),this}contains(e,t){return typeof t=="string"?this.url.searchParams.append(e,`cs.${t}`):Array.isArray(t)?this.url.searchParams.append(e,`cs.{${t.join(",")}}`):this.url.searchParams.append(e,`cs.${JSON.stringify(t)}`),this}containedBy(e,t){return typeof t=="string"?this.url.searchParams.append(e,`cd.${t}`):Array.isArray(t)?this.url.searchParams.append(e,`cd.{${t.join(",")}}`):this.url.searchParams.append(e,`cd.${JSON.stringify(t)}`),this}rangeGt(e,t){return this.url.searchParams.append(e,`sr.${t}`),this}rangeGte(e,t){return this.url.searchParams.append(e,`nxl.${t}`),this}rangeLt(e,t){return this.url.searchParams.append(e,`sl.${t}`),this}rangeLte(e,t){return this.url.searchParams.append(e,`nxr.${t}`),this}rangeAdjacent(e,t){return this.url.searchParams.append(e,`adj.${t}`),this}overlaps(e,t){return typeof t=="string"?this.url.searchParams.append(e,`ov.${t}`):this.url.searchParams.append(e,`ov.{${t.join(",")}}`),this}textSearch(e,t,{config:s,type:n}={}){let i="";n==="plain"?i="pl":n==="phrase"?i="ph":n==="websearch"&&(i="w");let o=s===void 0?"":`(${s})`;return this.url.searchParams.append(e,`${i}fts${o}.${t}`),this}match(e){return Object.entries(e).filter(([t,s])=>s!==void 0).forEach(([t,s])=>{this.url.searchParams.append(t,`eq.${s}`)}),this}not(e,t,s){return this.url.searchParams.append(e,`not.${t}.${s}`),this}or(e,{foreignTable:t,referencedTable:s=t}={}){let n=s?`${s}.or`:"or";return this.url.searchParams.append(n,`(${e})`),this}filter(e,t,s){return this.url.searchParams.append(e,`${t}.${s}`),this}};var G=class{static{a(this,"PostgrestQueryBuilder")}url;headers;schema;signal;fetch;urlLengthLimit;retry;constructor(e,{headers:t={},schema:s,fetch:n,urlLengthLimit:i=8e3,retry:o}){this.url=e,this.headers=new Headers(t),this.schema=s,this.fetch=n,this.urlLengthLimit=i,this.retry=o}cloneRequestState(){return{url:new URL(this.url.toString()),headers:new Headers(this.headers)}}select(e,t){let{head:s=!1,count:n}=t??{},i=s?"HEAD":"GET",o=!1,c=(e??"*").split("").map(l=>/\s/.test(l)&&!o?"":(l==='"'&&(o=!o),l)).join(""),{url:u,headers:d}=this.cloneRequestState();return u.searchParams.set("select",c),n&&d.append("Prefer",`count=${n}`),new A({method:i,url:u,headers:d,schema:this.schema,fetch:this.fetch,urlLengthLimit:this.urlLengthLimit,retry:this.retry})}insert(e,{count:t,defaultToNull:s=!0}={}){let n="POST",{url:i,headers:o}=this.cloneRequestState();if(t&&o.append("Prefer",`count=${t}`),s||o.append("Prefer","missing=default"),Array.isArray(e)){let c=e.reduce((u,d)=>u.concat(Object.keys(d)),[]);if(c.length>0){let u=[...new Set(c)].map(d=>`"${d}"`);i.searchParams.set("columns",u.join(","))}}return new A({method:n,url:i,headers:o,schema:this.schema,body:e,fetch:this.fetch??fetch,urlLengthLimit:this.urlLengthLimit,retry:this.retry})}upsert(e,{onConflict:t,ignoreDuplicates:s=!1,count:n,defaultToNull:i=!0}={}){let o="POST",{url:c,headers:u}=this.cloneRequestState();if(u.append("Prefer",`resolution=${s?"ignore":"merge"}-duplicates`),t!==void 0&&c.searchParams.set("on_conflict",t),n&&u.append("Prefer",`count=${n}`),i||u.append("Prefer","missing=default"),Array.isArray(e)){let d=e.reduce((l,f)=>l.concat(Object.keys(f)),[]);if(d.length>0){let l=[...new Set(d)].map(f=>`"${f}"`);c.searchParams.set("columns",l.join(","))}}return new A({method:o,url:c,headers:u,schema:this.schema,body:e,fetch:this.fetch??fetch,urlLengthLimit:this.urlLengthLimit,retry:this.retry})}update(e,{count:t}={}){let s="PATCH",{url:n,headers:i}=this.cloneRequestState();return t&&i.append("Prefer",`count=${t}`),new A({method:s,url:n,headers:i,schema:this.schema,body:e,fetch:this.fetch??fetch,urlLengthLimit:this.urlLengthLimit,retry:this.retry})}delete({count:e}={}){let t="DELETE",{url:s,headers:n}=this.cloneRequestState();return e&&n.append("Prefer",`count=${e}`),new A({method:t,url:s,headers:n,schema:this.schema,fetch:this.fetch??fetch,urlLengthLimit:this.urlLengthLimit,retry:this.retry})}};var N=class r{static{a(this,"PostgrestClient")}url;headers;schemaName;fetch;urlLengthLimit;retry;constructor(e,{headers:t={},schema:s,fetch:n,timeout:i,urlLengthLimit:o=8e3,retry:c}={}){this.url=e,this.headers=new Headers(t),this.schemaName=s,this.urlLengthLimit=o;let u=n??globalThis.fetch;i!==void 0&&i>0?this.fetch=(d,l)=>{let f=new AbortController,g=setTimeout(()=>f.abort(),i),y=l?.signal;if(y){if(y.aborted)return clearTimeout(g),u(d,l);let ne=a(()=>{clearTimeout(g),f.abort()},"abortHandler");return y.addEventListener("abort",ne,{once:!0}),u(d,{...l,signal:f.signal}).finally(()=>{clearTimeout(g),y.removeEventListener("abort",ne)})}return u(d,{...l,signal:f.signal}).finally(()=>clearTimeout(g))}:this.fetch=u,this.retry=c}from(e){if(!e||typeof e!="string"||e.trim()==="")throw new Error("Invalid relation name: relation must be a non-empty string.");let t=new URL(`${this.url}/${e}`);return new G(t,{headers:new Headers(this.headers),schema:this.schemaName,fetch:this.fetch,urlLengthLimit:this.urlLengthLimit,retry:this.retry})}schema(e){return new r(this.url,{headers:this.headers,schema:e,fetch:this.fetch,urlLengthLimit:this.urlLengthLimit,retry:this.retry})}rpc(e,t={},{head:s=!1,get:n=!1,count:i}={}){let o,c=new URL(`${this.url}/rpc/${e}`),u,d=a(g=>g!==null&&typeof g=="object"&&(!Array.isArray(g)||g.some(d)),"_isObject"),l=s&&Object.values(t).some(d);l?(o="POST",u=t):s||n?(o=s?"HEAD":"GET",Object.entries(t).filter(([g,y])=>y!==void 0).map(([g,y])=>[g,Array.isArray(y)?`{${y.join(",")}}`:`${y}`]).forEach(([g,y])=>{c.searchParams.append(g,y)})):(o="POST",u=t);let f=new Headers(this.headers);return l?f.set("Prefer",i?`count=${i},return=minimal`:"return=minimal"):i&&f.set("Prefer",`count=${i}`),new A({method:o,url:c,headers:f,schema:this.schemaName,body:u,fetch:this.fetch??fetch,urlLengthLimit:this.urlLengthLimit,retry:this.retry})}};var J=class{static{a(this,"WorkBuddyDatabaseModule")}client;constructor(e,t){this.client=new N(`${e.endpoint}${R.database}`,{fetch:t}),this.from=this.client.from.bind(this.client),this.rpc=this.client.rpc.bind(this.client)}from;rpc;get url(){return this.client.url}};function et(r,e){return new J(r,e)}a(et,"createDatabaseModule");var x=class extends Error{static{a(this,"CloudOpenAIError")}error;status;requestId;retryAfterMs;constructor(e,t={}){let s=typeof e=="string"?{message:e,type:"server_error",param:null,code:null}:e;super(s.message),this.name="CloudOpenAIError",this.error=s,this.status=t.status,this.requestId=t.requestId,this.retryAfterMs=t.retryAfterMs,t.cause!==void 0&&("cause"in this||Object.defineProperty(this,"cause",{value:t.cause,writable:!1,enumerable:!1,configurable:!1}))}};function tt(r){if(!r)return;let e=r.trim(),t=Number(e);if(!isNaN(t)&&t>=0&&Number.isInteger(t))return t*1e3;let s=Date.parse(e);if(!isNaN(s)){let n=s-Date.now();return n>0?n:0}}a(tt,"parseRetryAfter");function m(...r){return r.find(e=>typeof e=="string"&&e.length>0)}a(m,"stringField");function k(...r){return r.find(e=>typeof e=="number"&&Number.isFinite(e))}a(k,"numberField");function E(...r){return r.find(e=>typeof e=="boolean")}a(E,"booleanField");function rt(...r){for(let e of r){if(typeof e=="number"&&Number.isFinite(e))return e;if(e!==null&&typeof e=="object"&&!Array.isArray(e))return Jt(e)}}a(rt,"contextWindowField");function Jt(r){let e={};for(let[t,s]of Object.entries(r)){if(t==="supportedLengths"){Array.isArray(s)&&(e.supportedLengths=s.filter(n=>typeof n=="number"&&Number.isFinite(n)));continue}if(t==="defaultLength"){typeof s=="number"&&Number.isFinite(s)&&(e.defaultLength=s);continue}Object.defineProperty(e,t,{value:s,writable:!0,enumerable:!0,configurable:!0})}return e}a(Jt,"normalizeContextWindowObject");function st(r){if(!r||typeof r!="object")return;let e=r,t=Array.isArray(e.input)?e.input.filter(n=>typeof n=="string"):void 0,s=Array.isArray(e.output)?e.output.filter(n=>typeof n=="string"):void 0;return t?.length||s?.length?{...t?.length?{input:t}:{},...s?.length?{output:s}:{}}:void 0}a(st,"modalitiesField");function nt(r){if(!r||typeof r!="object")return;let t=Object.entries(r).filter(([,s])=>typeof s=="boolean");return t.length?Object.fromEntries(t):void 0}a(nt,"capabilitiesField");function it(r){if(!r||typeof r!="object")return;let e=r,t={...m(e.currency)?{currency:e.currency}:{},...k(e.inputPerMillionTokens)!==void 0?{inputPerMillionTokens:e.inputPerMillionTokens}:{},...k(e.outputPerMillionTokens)!==void 0?{outputPerMillionTokens:e.outputPerMillionTokens}:{},...m(e.displayText)?{displayText:e.displayText}:{}};return Object.keys(t).length?t:void 0}a(it,"pricingField");function ot(r){if(!r||typeof r!="object")return;let e=r,t={},s=m(e.effort);s!==void 0&&(t.effort=s);let n=m(e.defaultEffort);n!==void 0&&(t.defaultEffort=n),Array.isArray(e.supportedEfforts)&&(t.supportedEfforts=e.supportedEfforts.filter(c=>typeof c=="string"));let i=m(e.summary);i!==void 0&&(i==="auto"||i==="concise"||i==="detailed")&&(t.summary=i);let o=E(e.canDisableThinking);return o!==void 0&&(t.canDisableThinking=o),Object.keys(t).length>0?t:void 0}a(ot,"reasoningField");function Yt(r){let e=m(r.id,r.ID);if(!e)return null;let t=E(r.enabled,r.Enabled),s=E(r.disabled,r.Disabled),n,i;return t!==void 0?(n=t,s!==void 0&&(i=s)):s!==void 0?(i=s,n=!s):n=!0,{id:e,name:m(r.name,r.Name)??e,...m(r.provider,r.Provider)?{provider:m(r.provider,r.Provider)}:{},...m(r.vendor,r.Vendor)?{vendor:m(r.vendor,r.Vendor)}:{},...m(r.family,r.Family)?{family:m(r.family,r.Family)}:{},...m(r.version,r.Version)?{version:m(r.version,r.Version)}:{},...m(r.description,r.Description)?{description:m(r.description,r.Description)}:{},...m(r.descriptionZh,r.DescriptionZh)?{descriptionZh:m(r.descriptionZh,r.DescriptionZh)}:{},...m(r.descriptionEn,r.DescriptionEn)?{descriptionEn:m(r.descriptionEn,r.DescriptionEn)}:{},...m(r.iconUrl,r.IconURL)?{iconUrl:m(r.iconUrl,r.IconURL)}:{},...rt(r.contextWindow,r.ContextWindow)!==void 0?{contextWindow:rt(r.contextWindow,r.ContextWindow)}:{},...k(r.maxInputTokens,r.MaxInputTokens)!==void 0?{maxInputTokens:k(r.maxInputTokens,r.MaxInputTokens)}:{},...k(r.maxOutputTokens,r.MaxOutputTokens)!==void 0?{maxOutputTokens:k(r.maxOutputTokens,r.MaxOutputTokens)}:{},...st(r.modalities??r.Modalities)?{modalities:st(r.modalities??r.Modalities)}:{},...nt(r.capabilities??r.Capabilities)?{capabilities:nt(r.capabilities??r.Capabilities)}:{},enabled:n,...i!==void 0?{disabled:i}:{},...E(r.isDefault,r.IsDefault)!==void 0?{isDefault:E(r.isDefault,r.IsDefault)}:{},...k(r.sortOrder,r.SortOrder)!==void 0?{sortOrder:k(r.sortOrder,r.SortOrder)}:{},...it(r.pricing??r.Pricing)?{pricing:it(r.pricing??r.Pricing)}:{},...m(r.credits,r.Credits)?{credits:m(r.credits,r.Credits)}:{},...k(r.maxAllowedSize,r.MaxAllowedSize)!==void 0?{maxAllowedSize:k(r.maxAllowedSize,r.MaxAllowedSize)}:{},...E(r.disabledMultimodal,r.DisabledMultimodal)!==void 0?{disabledMultimodal:E(r.disabledMultimodal,r.DisabledMultimodal)}:{},...E(r.supportsImages,r.SupportsImages)!==void 0?{supportsImages:E(r.supportsImages,r.SupportsImages)}:{},...E(r.supportsToolCall,r.SupportsToolCall)!==void 0?{supportsToolCall:E(r.supportsToolCall,r.SupportsToolCall)}:{},...E(r.supportsReasoning,r.SupportsReasoning)!==void 0?{supportsReasoning:E(r.supportsReasoning,r.SupportsReasoning)}:{},...E(r.onlyReasoning,r.OnlyReasoning)!==void 0?{onlyReasoning:E(r.onlyReasoning,r.OnlyReasoning)}:{},...ot(r.reasoning??r.Reasoning)?{reasoning:ot(r.reasoning??r.Reasoning)}:{},...k(r.temperature,r.Temperature)!==void 0?{temperature:k(r.temperature,r.Temperature)}:{},...k(r.top_k,r.Top_K)!==void 0?{top_k:k(r.top_k,r.Top_K)}:{},...k(r.top_p,r.Top_P)!==void 0?{top_p:k(r.top_p,r.Top_P)}:{},...k(r.repetition_penalty,r.Repetition_Penalty)!==void 0?{repetition_penalty:k(r.repetition_penalty,r.Repetition_Penalty)}:{}}}a(Yt,"normalizeModel");function Te(r){return r.name||r.id}a(Te,"getModelDisplayName");function Oe(r,e){return r.capabilities?.[e]}a(Oe,"getModelCapability");var he=class{static{a(this,"ModelsAPI")}baseUrl;fetch;constructor(e,t){this.baseUrl=e,this.fetch=t}async list(e){let t;try{t=await this.fetch(`${this.baseUrl}/models`,{method:"GET",headers:{Accept:"application/json"},signal:e})}catch(c){throw c instanceof Error&&c.name==="AbortError"?c:new x({message:`Network error: ${c?.message??"unknown"}`,type:"server_error",param:null,code:"gateway_network_error"},{cause:c})}if(!t.ok)throw await Ae(t);let s=await t.text(),n;try{n=JSON.parse(s)}catch{throw new x({message:"Failed to parse models response: invalid JSON",type:"server_error",param:null,code:"gateway_invalid_response"})}let i=Array.isArray(n)?n:Array.isArray(n?.data)?n.data:[],o=[];for(let c of i){let u=Yt(c);u&&o.push(u)}return o}};async function Ae(r){let e=await r.text().catch(()=>""),t;try{let i=JSON.parse(e);if(i&&typeof i=="object"&&i.error){let o=i.error;t={message:typeof o.message=="string"?o.message:`HTTP ${r.status}`,type:typeof o.type=="string"?o.type:"server_error",param:o.param===void 0?null:o.param,code:o.code===void 0?null:o.code}}else t={message:typeof i=="string"?i:`HTTP ${r.status}`,type:"server_error",param:null,code:null}}catch{t={message:e||`HTTP ${r.status}`,type:"server_error",param:null,code:null}}let s=r.headers.get("x-request-id")??void 0,n=tt(r.headers.get("retry-after"));return new x(t,{status:r.status,requestId:s,retryAfterMs:n})}a(Ae,"httpError");var fe=class{static{a(this,"Utf8Decoder")}codePoint=0;bytesNeeded=0;bytesSeen=0;lowerBoundary=128;upperBoundary=191;bomSeen=!1;streaming=!1;resetSequence(){this.codePoint=0,this.bytesNeeded=0,this.bytesSeen=0,this.lowerBoundary=128,this.upperBoundary=191}decode(e=new Uint8Array,t={}){this.streaming||(this.resetSequence(),this.bomSeen=!1),this.streaming=t.stream===!0;let s="",n=a(i=>{!this.bomSeen&&(this.bomSeen=!0,i===65279)||(s+=String.fromCodePoint(i))},"emit");for(let i=0;i<e.length;i++){let o=e[i];if(this.bytesNeeded===0){o<=127?n(o):o>=194&&o<=223?(this.bytesNeeded=1,this.codePoint=o&31):o>=224&&o<=239?(this.bytesNeeded=2,this.codePoint=o&15,o===224&&(this.lowerBoundary=160),o===237&&(this.upperBoundary=159)):o>=240&&o<=244?(this.bytesNeeded=3,this.codePoint=o&7,o===240&&(this.lowerBoundary=144),o===244&&(this.upperBoundary=143)):n(65533);continue}if(o<this.lowerBoundary||o>this.upperBoundary){this.resetSequence(),n(65533),i--;continue}this.lowerBoundary=128,this.upperBoundary=191,this.codePoint=this.codePoint<<6|o&63,this.bytesSeen++,this.bytesSeen===this.bytesNeeded&&(n(this.codePoint),this.resetSequence())}return!this.streaming&&this.bytesNeeded>0&&(n(65533),this.resetSequence()),s}};var Xt=class{static{a(this,"SSEDecoder")}event=null;dataParts=[];decode(e){let t=e;if(t.endsWith("\r")&&(t=t.slice(0,-1)),t===""){if(this.event===null&&this.dataParts.length===0)return null;let o={event:this.event,data:this.dataParts.join(`
+`)};return this.event=null,this.dataParts=[],o}if(t.startsWith(":"))return null;let s=t.indexOf(":"),n,i;if(s===-1)n=t,i="";else{n=t.slice(0,s);let o=t.slice(s+1);o.startsWith(" ")&&(o=o.slice(1)),i=o}return n==="event"?this.event=i:n==="data"&&this.dataParts.push(i),null}flush(){if(this.event===null&&this.dataParts.length===0)return null;let e={event:this.event,data:this.dataParts.join(`
+`)};return this.event=null,this.dataParts=[],e}},Qt=class{static{a(this,"LineDecoder")}buffer=new Uint8Array;decoder;constructor(){this.decoder=typeof TextDecoder>"u"?new fe:new TextDecoder("utf-8")}decode(e){let t=new Uint8Array(this.buffer.length+e.length);t.set(this.buffer),t.set(e,this.buffer.length),this.buffer=t;let s=[],n=0;for(let i=0;i<this.buffer.length;i++)if(this.buffer[i]===10||this.buffer[i]===13){let o=this.buffer.subarray(n,i),c=this.decoder.decode(o,{stream:!0});s.push(c),this.buffer[i]===13&&i+1<this.buffer.length&&this.buffer[i+1]===10&&i++,n=i+1}return n>0&&(this.buffer=this.buffer.slice(n)),s}flush(){if(this.buffer.length===0){let t=this.decoder.decode();return t?[t]:[]}let e=this.decoder.decode(this.buffer,{stream:!1});return this.buffer=new Uint8Array,e?[e]:[]}},at="[DONE]";async function*ct(r,e){let t=new Xt,s=new Qt,n=r.getReader(),i=!1,o=a(()=>{i=!0,n.cancel().catch(()=>{})},"onAbort");if(e){if(e.aborted)return;e.addEventListener("abort",o,{once:!0})}try{for(;;){if(i)return;let u;try{u=await n.read()}catch(f){if(i||f instanceof Error&&f.name==="AbortError")return;throw f}let{done:d,value:l}=u;if(d)break;for(let f of s.decode(l)){let g=t.decode(f);g&&(yield g)}}for(let u of s.flush()){let d=t.decode(u);d&&(yield d)}let c=t.flush();c&&(yield c)}finally{e&&e.removeEventListener("abort",o);try{n.releaseLock()}catch{}}}a(ct,"iterSSEEvents");function Zt(r,e){let t=e?{requestId:e}:{};try{let s=JSON.parse(r);if(s&&typeof s=="object"){let n=s.error??s;if(n&&typeof n=="object")return new x({message:typeof n.message=="string"?n.message:"Stream error",type:typeof n.type=="string"?n.type:"server_error",param:n.param===void 0?null:n.param,code:n.code===void 0?null:n.code},t)}}catch{}return new x({message:r||"Stream error",type:"server_error",param:null,code:null},t)}a(Zt,"extractSSEError");var pe=class{static{a(this,"ChatCompletionsAPI")}baseUrl;fetch;constructor(e,t){this.baseUrl=e,this.fetch=t}create(e){if(e.stream!==!0)throw new x({message:"stream must be true; non-streaming chat completions are not supported",type:"invalid_request_error",param:"stream",code:"request_stream_required"});return this.createStreaming(e)}async*createStreaming(e){let{signal:t,conversationId:s,...n}=e;n.stream=!0;let i;try{i=await this.fetch(`${this.baseUrl}/chat/completions`,{method:"POST",headers:{Accept:"text/event-stream","Content-Type":"application/json",...s!==void 0?{"X-Conversation-ID":s}:{}},body:JSON.stringify(n),signal:t})}catch(d){if(d instanceof Error&&d.name==="AbortError")return;throw new x({message:`Network error: ${d?.message??"unknown"}`,type:"server_error",param:null,code:"gateway_network_error"},{cause:d})}if(!i.ok)throw await Ae(i);if(!i.body)throw new x({message:"Response body is empty \u2014 streaming not supported",type:"server_error",param:null,code:"gateway_invalid_response"},{requestId:i.headers.get("x-request-id")??void 0});let o=i.headers.get("x-request-id")??void 0,c=!1,u=!1;try{for await(let d of ct(i.body,t)){if(d.event==="error")throw u=!0,Zt(d.data,o);if(d.event===null||d.event===""){if(d.data===at){c=!0;return}if(!d.data)continue;let l;try{l=JSON.parse(d.data)}catch{throw u=!0,new x({message:`Failed to parse SSE data: ${d.data}`,type:"server_error",param:null,code:"gateway_invalid_response"},{requestId:o})}if(l&&typeof l=="object"&&"error"in l){u=!0;let f=l.error;throw new x({message:typeof f?.message=="string"?f.message:"Stream error",type:typeof f?.type=="string"?f.type:"server_error",param:f?.param===void 0?null:f.param,code:f?.code===void 0?null:f.code},{requestId:o})}yield l}}}catch(d){if(d instanceof Error&&d.name==="AbortError")return;throw u=!0,d}if(!c&&!u&&!t?.aborted)throw new x({message:"\u6D41\u5F0F\u54CD\u5E94\u4E2D\u65AD\u3002",type:"server_error",param:null,code:"gateway_stream_interrupted"},{requestId:o})}};var M=class{static{a(this,"LlmModule")}fetch;baseUrl;models;chat;constructor(e,t){this.fetch=t,this.baseUrl=`${e.endpoint}${R.llm}`,this.models=new he(this.baseUrl,this.fetch),this.chat={completions:new pe(this.baseUrl,this.fetch)}}};var F=class extends Error{static{a(this,"StorageError")}__isStorageError=!0;namespace;status;statusCode;constructor(e,t="storage",s,n){super(e),this.namespace=t,this.name=t==="vectors"?"StorageVectorsError":"StorageError",this.status=s,this.statusCode=n}toJSON(){return{name:this.name,message:this.message,status:this.status,statusCode:this.statusCode}}};function U(r){return typeof r=="object"&&r!==null&&"__isStorageError"in r}a(U,"isStorageError");var C=class extends F{static{a(this,"StorageApiError")}status;statusCode;code;constructor(e,t,s,n="storage",i){super(e,n,t,s),this.name=n==="vectors"?"StorageVectorsApiError":"StorageApiError",this.status=t,this.statusCode=s,this.code=i}toJSON(){return{...super.toJSON(),code:this.code}}},q=class extends F{static{a(this,"StorageUnknownError")}originalError;constructor(e,t,s="storage"){super(e,s),this.name=s==="vectors"?"StorageVectorsUnknownError":"StorageUnknownError",this.originalError=t}};function L(r,e,t){let s={...r},n=e.toLowerCase();for(let i of Object.keys(s))i.toLowerCase()===n&&delete s[i];return s[n]=t,s}a(L,"setHeader");function ut(r){let e={};for(let[t,s]of Object.entries(r))e[t.toLowerCase()]=s;return e}a(ut,"normalizeHeaders");var dt=a(r=>r?(...e)=>r(...e):(...e)=>fetch(...e),"resolveFetch");var lt=a(r=>{if(typeof r!="object"||r===null)return!1;let e=Object.getPrototypeOf(r);return(e===null||e===Object.prototype||Object.getPrototypeOf(e)===null)&&!(Symbol.toStringTag in r)&&!(Symbol.iterator in r)},"isPlainObject"),me=a(r=>{if(Array.isArray(r))return r.map(t=>me(t));if(typeof r=="function"||r!==Object(r))return r;let e={};return Object.entries(r).forEach(([t,s])=>{let n=t.replace(/([-_][a-z])/gi,i=>i.toUpperCase().replace(/[-_]/g,""));e[n]=me(s)}),e},"recursiveToCamel");var ht=a(r=>r.split("/").map(encodeURIComponent).join("/"),"encodeStoragePath");var ft=a(r=>{if(typeof r=="object"&&r!==null){let e=r;if(typeof e.msg=="string")return e.msg;if(typeof e.message=="string")return e.message;if(typeof e.error_description=="string")return e.error_description;if(typeof e.error=="string")return e.error;if(typeof e.error=="object"&&e.error!==null){let t=e.error;if(typeof t.message=="string")return t.message}}return JSON.stringify(r)},"_getErrorMessage"),er=a(async(r,e,t,s)=>{if(r!==null&&typeof r=="object"&&"json"in r&&typeof r.json=="function"){let i=r,o=parseInt(String(i.status),10);Number.isFinite(o)||(o=500),i.json().then(c=>{let u=c?.statusCode||c?.code||o+"";e(new C(ft(c),o,u,s,c?.code))}).catch(()=>{let c=o+"",u=i.statusText||`HTTP ${o} error`;e(new C(u,o,c,s))})}else e(new q(ft(r),r,s))},"handleError"),tr=a((r,e,t,s)=>{let n={method:r,headers:e?.headers||{}};if(r==="GET"||r==="HEAD"||!s)return{...n,...t};if(lt(s)){let i=e?.headers||{},o;for(let[c,u]of Object.entries(i))c.toLowerCase()==="content-type"&&(o=u);n.headers=L(i,"Content-Type",o??"application/json"),n.body=JSON.stringify(s)}else n.body=s;return e?.duplex&&(n.duplex=e.duplex),{...n,...t}},"_getRequestParams");async function Y(r,e,t,s,n,i,o){return new Promise((c,u)=>{r(t,tr(e,s,n,i)).then(d=>{if(!d.ok)throw d;if(s?.noResolveJson)return d;if(o==="vectors"){let l=d.headers.get("content-type");if(d.headers.get("content-length")==="0"||d.status===204)return{};if(!l||!l.includes("application/json"))return{}}return d.json()}).then(d=>c(d)).catch(d=>er(d,u,s,o))})}a(Y,"_handleRequest");function pt(r="storage"){return{get:a(async(e,t,s,n)=>Y(e,"GET",t,s,n,void 0,r),"get"),post:a(async(e,t,s,n,i)=>Y(e,"POST",t,n,i,s,r),"post"),put:a(async(e,t,s,n,i)=>Y(e,"PUT",t,n,i,s,r),"put"),head:a(async(e,t,s,n)=>Y(e,"HEAD",t,{...s,noResolveJson:!0},n,void 0,r),"head"),remove:a(async(e,t,s,n,i)=>Y(e,"DELETE",t,n,i,s,r),"remove")}}a(pt,"createFetchApi");var rr=pt("storage"),{get:Re,post:$,put:$e,head:mt,remove:Ue}=rr,Ms=pt("vectors");var X=class{static{a(this,"BaseApiClient")}url;headers;fetch;shouldThrowOnError=!1;namespace;constructor(e,t={},s,n="storage"){this.url=e,this.headers=ut(t),this.fetch=dt(s),this.namespace=n}throwOnError(){return this.shouldThrowOnError=!0,this}setHeader(e,t){return this.headers=L(this.headers,e,t),this}async handleOperation(e){try{return{data:await e(),error:null}}catch(t){if(this.shouldThrowOnError)throw t;if(U(t))return{data:null,error:t};throw t}}};var Q=class{static{a(this,"StreamDownloadBuilder")}downloadFn;shouldThrowOnError;[Symbol.toStringTag]="StreamDownloadBuilder";promise=null;constructor(e,t){this.downloadFn=e,this.shouldThrowOnError=t}then(e,t){return this.getPromise().then(e,t)}catch(e){return this.getPromise().catch(e)}finally(e){return this.getPromise().finally(e)}getPromise(){return this.promise||(this.promise=this.execute()),this.promise}async execute(){try{return{data:(await this.downloadFn()).body,error:null}}catch(e){if(this.shouldThrowOnError)throw e;if(U(e))return{data:null,error:e};throw e}}};var Z=class{static{a(this,"BlobDownloadBuilder")}downloadFn;shouldThrowOnError;[Symbol.toStringTag]="BlobDownloadBuilder";promise=null;constructor(e,t){this.downloadFn=e,this.shouldThrowOnError=t}asStream(){return new Q(this.downloadFn,this.shouldThrowOnError)}then(e,t){return this.getPromise().then(e,t)}catch(e){return this.getPromise().catch(e)}finally(e){return this.getPromise().finally(e)}getPromise(){return this.promise||(this.promise=this.execute()),this.promise}async execute(){try{return{data:await(await this.downloadFn()).blob(),error:null}}catch(e){if(this.shouldThrowOnError)throw e;if(U(e))return{data:null,error:e};throw e}}};var Ie={limit:100,offset:0,sortBy:{column:"name",order:"asc"}},gt={cacheControl:"3600",contentType:"text/plain;charset=UTF-8",upsert:!1},ee=class extends X{static{a(this,"StorageFileApi")}bucketId;constructor(e,t={},s,n){super(e,t,n,"storage"),this.bucketId=s}async uploadOrUpdate(e,t,s,n){return this.handleOperation(async()=>{let i,o={...gt,...n},c={...this.headers,...e==="POST"&&{"x-upsert":String(o.upsert)}},u=o.metadata;if(typeof Blob<"u"&&s instanceof Blob?(i=new FormData,i.append("cacheControl",o.cacheControl),u&&i.append("metadata",this.encodeMetadata(u)),i.append("",s)):typeof FormData<"u"&&s instanceof FormData?(i=s,i.has("cacheControl")||i.append("cacheControl",o.cacheControl),u&&!i.has("metadata")&&i.append("metadata",this.encodeMetadata(u))):(i=s,c["cache-control"]=`max-age=${o.cacheControl}`,c["content-type"]=o.contentType,u&&(c["x-metadata"]=this.toBase64(this.encodeMetadata(u))),(typeof ReadableStream<"u"&&i instanceof ReadableStream||i&&typeof i=="object"&&"pipe"in i&&typeof i.pipe=="function")&&!o.duplex&&(o.duplex="half")),n?.headers)for(let[g,y]of Object.entries(n.headers))c=L(c,g,y);let d=this._removeEmptyFolders(t),l=this._getFinalPath(d),f=await(e=="PUT"?$e:$)(this.fetch,`${this.url}/object/${l}`,i,{headers:c,...o?.duplex?{duplex:o.duplex}:{}});return{path:d,id:f.Id,fullPath:f.Key}})}async upload(e,t,s){return this.uploadOrUpdate("POST",e,t,s)}async uploadToSignedUrl(e,t,s,n){let i=this._removeEmptyFolders(e),o=this._getFinalPath(i),c=new URL(this.url+`/object/upload/sign/${o}`);return c.searchParams.set("token",t),this.handleOperation(async()=>{let u,d={...gt,...n},l={...this.headers,"x-upsert":String(d.upsert)},f=d.metadata;if(typeof Blob<"u"&&s instanceof Blob?(u=new FormData,u.append("cacheControl",d.cacheControl),f&&u.append("metadata",this.encodeMetadata(f)),u.append("",s)):typeof FormData<"u"&&s instanceof FormData?(u=s,u.has("cacheControl")||u.append("cacheControl",d.cacheControl),f&&!u.has("metadata")&&u.append("metadata",this.encodeMetadata(f))):(u=s,l["cache-control"]=`max-age=${d.cacheControl}`,l["content-type"]=d.contentType,f&&(l["x-metadata"]=this.toBase64(this.encodeMetadata(f))),(typeof ReadableStream<"u"&&u instanceof ReadableStream||u&&typeof u=="object"&&"pipe"in u&&typeof u.pipe=="function")&&!d.duplex&&(d.duplex="half")),n?.headers)for(let[y,ne]of Object.entries(n.headers))l=L(l,y,ne);let g=await $e(this.fetch,c.toString(),u,{headers:l,...d?.duplex?{duplex:d.duplex}:{}});return{path:i,fullPath:g.Key}})}async createSignedUploadUrl(e,t){return this.handleOperation(async()=>{let s=this._getFinalPath(e),n={...this.headers};t?.upsert&&(n["x-upsert"]="true");let i=await $(this.fetch,`${this.url}/object/upload/sign/${s}`,{},{headers:n}),o=new URL(this.url+i.url),c=o.searchParams.get("token");if(!c)throw new F("No token returned by API");return{signedUrl:o.toString(),path:e,token:c}})}async update(e,t,s){return this.uploadOrUpdate("PUT",e,t,s)}async move(e,t,s){return this.handleOperation(async()=>await $(this.fetch,`${this.url}/object/move`,{bucketId:this.bucketId,sourceKey:e,destinationKey:t,destinationBucket:s?.destinationBucket},{headers:this.headers}))}async copy(e,t,s){return this.handleOperation(async()=>({path:(await $(this.fetch,`${this.url}/object/copy`,{bucketId:this.bucketId,sourceKey:e,destinationKey:t,destinationBucket:s?.destinationBucket},{headers:this.headers})).Key}))}async createSignedUrl(e,t,s){return this.handleOperation(async()=>{let n=this._getFinalPath(e),i=typeof s?.transform=="object"&&s.transform!==null&&Object.keys(s.transform).length>0,o=await $(this.fetch,`${this.url}/object/sign/${n}`,{expiresIn:t,...i?{transform:s.transform}:{}},{headers:this.headers}),c=new URLSearchParams;s?.download&&c.set("download",s.download===!0?"":s.download),s?.cacheNonce!=null&&c.set("cacheNonce",String(s.cacheNonce));let u=c.toString();return{signedUrl:encodeURI(`${this.url}${o.signedURL}${u?`&${u}`:""}`)}})}async createSignedUrls(e,t,s){return this.handleOperation(async()=>{let n=await $(this.fetch,`${this.url}/object/sign/${this.bucketId}`,{expiresIn:t,paths:e},{headers:this.headers}),i=new URLSearchParams;s?.download&&i.set("download",s.download===!0?"":s.download),s?.cacheNonce!=null&&i.set("cacheNonce",String(s.cacheNonce));let o=i.toString();return n.map(c=>({...c,signedUrl:c.signedURL?encodeURI(`${this.url}${c.signedURL}${o?`&${o}`:""}`):null}))})}download(e,t,s){let i=typeof t?.transform=="object"&&t.transform!==null&&Object.keys(t.transform).length>0?"render/image/authenticated":"object",o=new URLSearchParams;t?.transform&&this.applyTransformOptsToQuery(o,t.transform),t?.cacheNonce!=null&&o.set("cacheNonce",String(t.cacheNonce));let c=o.toString(),u=this._getFinalPath(e),d=a(()=>Re(this.fetch,`${this.url}/${i}/${u}${c?`?${c}`:""}`,{headers:this.headers,noResolveJson:!0},s),"downloadFn");return new Z(d,this.shouldThrowOnError)}async info(e){let t=this._getFinalPath(e);return this.handleOperation(async()=>{let s=await Re(this.fetch,`${this.url}/object/info/${t}`,{headers:this.headers});return me(s)})}async exists(e){let t=this._getFinalPath(e);try{return await mt(this.fetch,`${this.url}/object/${t}`,{headers:this.headers}),{data:!0,error:null}}catch(s){if(this.shouldThrowOnError)throw s;if(U(s)){let n=s instanceof C?s.status:s instanceof q?s.originalError?.status:void 0;if(n!==void 0&&[400,404].includes(n))return{data:!1,error:s}}throw s}}getPublicUrl(e,t){let s=this._getFinalPath(e),n=new URLSearchParams;t?.download&&n.set("download",t.download===!0?"":t.download),t?.transform&&this.applyTransformOptsToQuery(n,t.transform),t?.cacheNonce!=null&&n.set("cacheNonce",String(t.cacheNonce));let i=n.toString(),c=typeof t?.transform=="object"&&t.transform!==null&&Object.keys(t.transform).length>0?"render/image":"object";return{data:{publicUrl:encodeURI(`${this.url}/${c}/public/${s}`)+(i?`?${i}`:"")}}}async remove(e){return this.handleOperation(async()=>await Ue(this.fetch,`${this.url}/object/${this.bucketId}`,{prefixes:e},{headers:this.headers}))}async purgeCache(e,t,s){return this.handleOperation(async()=>{let n=ht(this._getFinalPath(e)),i=new URLSearchParams;t?.transformations&&i.set("transformations","true");let o=i.toString();return await Ue(this.fetch,`${this.url}/cdn/${n}${o?`?${o}`:""}`,{},{headers:this.headers},s)})}async list(e,t,s){return this.handleOperation(async()=>{let n=t?.sortBy?{...Ie.sortBy,...t.sortBy}:Ie.sortBy,i={...Ie,...t,sortBy:n,prefix:e||""};return await $(this.fetch,`${this.url}/object/list/${this.bucketId}`,i,{headers:this.headers},s)})}async listV2(e,t){return this.handleOperation(async()=>{let s={...e};return await $(this.fetch,`${this.url}/object/list-v2/${this.bucketId}`,s,{headers:this.headers},t)})}encodeMetadata(e){return JSON.stringify(e)}toBase64(e){return typeof Buffer<"u"?Buffer.from(e).toString("base64"):btoa(e)}_getFinalPath(e){return`${this.bucketId}/${e.replace(/^\/+/,"")}`}_removeEmptyFolders(e){return e.replace(/^\/|\/$/g,"").replace(/\/+/g,"/")}applyTransformOptsToQuery(e,t){return t.width&&e.set("width",t.width.toString()),t.height&&e.set("height",t.height.toString()),t.resize&&e.set("resize",t.resize),t.format&&e.set("format",t.format),t.quality&&e.set("quality",t.quality.toString()),e}};var yt="2.112.3";var bt={"X-Client-Info":`storage-js/${yt}`};var W="runtime",ge=600,ye=3600,w=class extends Error{static{a(this,"CloudStoragePathError")}constructor(e){super(e),this.name="CloudStoragePathError"}},te=class{static{a(this,"WorkBuddyStorageDownload")}blob;stream;[Symbol.toStringTag]="WorkBuddyStorageDownload";constructor(e,t){this.blob=e,this.stream=t}asStream(){return this.stream()}then(e,t){return this.blob().then(e,t)}catch(e){return this.blob().catch(e)}finally(e){return this.blob().finally(e)}},H=class{static{a(this,"WorkBuddyStorageBucket")}fileApi;constructor(e){this.fileApi=e}upload(e,t,s){return _(this.fileApi.upload(v(e),t,s))}update(e,t,s){return _(this.fileApi.update(v(e),t,s))}list(e="",t){return _(this.fileApi.list(St(e),t))}listPage(e){return _(this.fileApi.listV2({...e,prefix:St(e?.prefix??"")}))}info(e){return _(this.fileApi.info(v(e)))}async exists(e){let t=await this.fileApi.exists(v(e));return t.error?{data:null,error:Et(t.error)}:{data:t.data,error:null}}download(e){let t=this.fileApi.download(v(e));return new te(()=>_(t),()=>_(t.asStream()))}remove(e){if(e.length===0)throw new w("remove requires at least one object path.");return _(this.fileApi.remove(e.map(v)))}copy(e,t){return _(this.fileApi.copy(v(e),v(t)))}move(e,t){return _(this.fileApi.move(v(e),v(t)))}createSignedUrl(e,t=ge){return _(this.fileApi.createSignedUrl(v(e),kt(t)))}createSignedUrls(e,t=ge){if(e.length===0)throw new w("createSignedUrls requires at least one object path.");return _(this.fileApi.createSignedUrls(e.map(v),kt(t)))}createSignedUploadUrl(e,t){return _(this.fileApi.createSignedUploadUrl(v(e),{upsert:t?.upsert??!1}))}uploadToSignedUrl(e,t,s,n){if(!t)throw new w("signed upload token is required.");return _(this.fileApi.uploadToSignedUrl(v(e),t,s,n))}},re=class extends H{static{a(this,"WorkBuddyStorageModule")}runtime;constructor(e){let s=e.from(W);super(s),this.runtime=new H(s)}from(e=W){if(e!==W)throw new w(`Only the "${W}" storage bucket is available.`);return this.runtime}userPath(e,t){return wt("users",e,t)}sharedPath(e,t){return wt("shared",e,t)}};function xt(r,e){let t={from:a(s=>new ee(`${r.endpoint}${R.storage}`,bt,s,e),"from")};return new re(t)}a(xt,"createStorageModule");function wt(r,e,t){let s=sr(e,"owner/user id"),n=Ce(t,!1);return v(`${r}/${s}/${n}`)}a(wt,"scopedPath");function v(r){let e=Ce(r,!1);if(!e.includes("/"))throw new w("Object paths must use users/<uid>/... or shared/<ownerUid>/....");let[t,s,...n]=e.split("/");if(t!=="users"&&t!=="shared"||!s||n.length===0)throw new w("Object paths must use users/<uid>/... or shared/<ownerUid>/....");return e}a(v,"validateObjectPath");function St(r){if(r==="")return"";let e=Ce(r,!0),[t,s]=e.split("/");if(t==="shared"&&!s)return"shared";if(t!=="users"&&t!=="shared"||!s)throw new w("List prefixes must start with users/<uid> or shared/<ownerUid>.");return e}a(St,"validateObjectPrefix");function Ce(r,e){if(typeof r!="string"||r.trim()==="")throw new w("Storage path must be a non-empty relative path.");let t=r.trim();for(let i=0;i<3;i+=1)try{let o=decodeURIComponent(t);if(o===t)break;t=o}catch{throw new w("Storage path contains invalid URL encoding.")}if(t.startsWith("/")||t.includes("\\")||t.includes("\0")||t.includes("//")||!e&&t.endsWith("/"))throw new w("Storage path is not a safe relative object path.");let s=e?t.replace(/\/+$/,""):t;if(s.split("/").some(i=>i===""||i==="."||i===".."))throw new w("Storage path traversal is not allowed.");return s}a(Ce,"validatePath");function sr(r,e){if(!r)throw new w(`${e} is not a valid storage path segment.`);let t=r;for(let s=0;s<3;s+=1)try{let n=decodeURIComponent(t);if(n===t)break;t=n}catch{throw new w(`${e} contains invalid URL encoding.`)}if(t.includes("/")||t.includes("\\")||t.includes("\0")||t==="."||t==="..")throw new w(`${e} is not a valid storage path segment.`);return t}a(sr,"validatePathSegment");function kt(r){if(!Number.isInteger(r)||r<=0||r>ye)throw new w(`Signed URL expiry must be an integer between 1 and ${ye} seconds.`);return r}a(kt,"validateSignedURLTTL");async function _(r){let e=await r;return e.error?{data:null,error:Et(e.error)}:e.data===null?{data:null,error:{name:"CloudStorageResponseError",message:"Storage API returned neither data nor an error."}}:{data:e.data,error:null}}a(_,"mapStorageResult");function Et(r){if(r instanceof Error){let e=r;return{name:e.name,message:e.message,status:e.status,statusCode:e.statusCode,code:e.code,cause:r}}return{name:"CloudStorageError",message:String(r),cause:r}}a(Et,"normalizeStorageError");var se=class{static{a(this,"WorkBuddyCloudClient")}config;database;auth;storage;llm;constructor(e,t={}){this.config=e,this.auth=new D(e,we(e,oe),{storage:t.storage,workBuddyMiniProgram:t.workBuddyMiniProgram});let s=we(e,()=>this.auth.getAccessToken());this.database=et(e,s),this.storage=xt(e,s),this.llm=new M(e,s)}get endpoint(){return this.config.endpoint}get oauthRelayBaseUrl(){return this.config.oauthRelayBaseUrl}};function vt(r){return new se(je(r),{storage:r.storage})}a(vt,"createWorkBuddyCloud");function Pt(r){return r.kind==="unauthenticated"||r.code==="invalid_grant"}a(Pt,"shouldClearCredentials");return $t(nr);})();
+</script>
+<script>
+/* ==================== 数据 ==================== */
+const KEY='chinese_checkin_v1';
+const STORAGE_KEY='chinese_checkin_state_v1';
+
+function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4)}
+
+const defaultData={
+  version:2,
+  rosterVersion:2,
+  classes:{
+    '803':{name:'803班',groups:[
+      {id:'803g1',name:'第一组',students:[['姜智骞'],['杜宇帆'],['柴皓轩'],['胡诗语'],['刘宇航'],['朱嘉浩']]},
+      {id:'803g2',name:'第二组',students:[['徐臻智'],['傅世妍'],['蒋乐伊'],['丁梓晗'],['杨尚谕'],['潘城昊']]},
+      {id:'803g3',name:'第三组',students:[['范曹睿'],['葛曦晨'],['陶海滢'],['陈萝苒'],['余哲'],['徐诗凯']]},
+      {id:'803g4',name:'第四组',students:[['金晨洁'],['蔡欣琪'],['孙晓优'],['袁龙祥'],['范雅丽'],['高广健']]},
+      {id:'803g5',name:'第五组',students:[['葛佳慧'],['黄浩翔'],['杨杰硕'],['孙亦琳'],['高雨萱'],['童跃洵']]},
+      {id:'803g6',name:'第六组',students:[['葛叶萌'],['李慧如'],['何玉灏'],['曾梓皓'],['盛昊辰'],['杨雨泽']]}
+    ]},
+    '804':{name:'804班',groups:[
+      {id:'804g1',name:'第一组',students:[['马苛鑫'],['袁美琪'],['李哲'],['张凌薇']]},
+      {id:'804g2',name:'第二组',students:[['王语轩'],['叶杭宇'],['郑稀宇'],['俞靖瑶'],['蒋亦宸']]},
+      {id:'804g3',name:'第三组',students:[['李苏园'],['张馨怡'],['傅梓锌'],['应雨宸'],['葛浩宇']]},
+      {id:'804g4',name:'第四组',students:[['何立航'],['陈又新'],['黄雨诺'],['李扬']]},
+      {id:'804g5',name:'第五组',students:[['李江左'],['詹文轩'],['梁亦涵'],['谭雨娜'],['郑伊宸']]},
+      {id:'804g6',name:'第六组',students:[['陈子涵'],['傅子龙'],['鲁佳彤'],['葛宸轩']]},
+      {id:'804g7',name:'第七组',students:[['滕思源'],['封睿'],['梁妙珍'],['凌潇'],['房亚州']]},
+      {id:'804g8',name:'第八组',students:[['郑鑫怡'],['吴晟雯'],['吴斯文杰'],['沈嘉乐']]}
+    ]}
+  },
+  homeworks:[
+    {id:'hw1',name:'课堂作业',penalty:1},
+    {id:'hw2',name:'家庭作业',penalty:1},
+    {id:'hw3',name:'练习册',penalty:1}
+  ],
+  dictations:[
+    {id:'dict1',name:'生字听写'},
+    {id:'dict2',name:'词语默写'},
+    {id:'dict3',name:'课文默写'}
+  ],
+  passScores:[5,4,3,2,1,0],
+  behaviors:[
+    {id:'bh1',name:'积极发言',type:'add',score:1},
+    {id:'bh2',name:'回答正确',type:'add',score:1},
+    {id:'bh3',name:'听写进步',type:'add',score:2},
+    {id:'bh4',name:'助人为乐',type:'add',score:1},
+    {id:'bh5',name:'课堂走神',type:'sub',score:1},
+    {id:'bh6',name:'扰乱纪律',type:'sub',score:1},
+    {id:'bh7',name:'未完成课堂任务',type:'sub',score:1}
+  ],
+  records:[],      // {id,date,classId,category,item,studentId,groupId,studentName,groupName,point,coupon,ts}
+  groupPass:[],    // {id,date,classId,groupId,groupName,rank,score,ts}
+  redeems:[],      // {id,date,classId,studentId,studentName,groupId,groupName,ts} 免作业兑换记录
+  adjustments:[],  // {id,date,classId,studentId,studentName,groupId,groupName,delta,reason,ts} 老师手动加减免作业机会（delta 正加负扣）
+  state:{classId:'803',date:today(),weekDate:today(),range:'week',tab:'homework',homeworkId:'hw1',dictationId:'dict1',weekHwId:'__all__',weekDictId:'__all__',weekBehId:'__all__',behaviorAddId:'bh1',behaviorSubId:'bh5'}
+};
+
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+
+let data=load();
+function load(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(!raw) return JSON.parse(JSON.stringify(defaultData));
+    const d=JSON.parse(raw);
+    d.records=d.records||[]; d.groupPass=d.groupPass||[]; d.behaviors=d.behaviors||[]; d.redeems=d.redeems||[]; d.adjustments=d.adjustments||[];
+    d.homeworks=d.homeworks||JSON.parse(JSON.stringify(defaultData.homeworks));
+    d.homeworks.forEach(h=>{if(h.penalty===undefined)h.penalty=1});
+    d.dictations=d.dictations||JSON.parse(JSON.stringify(defaultData.dictations));
+    d.passScores=d.passScores||JSON.parse(JSON.stringify(defaultData.passScores));
+    // 名单版本升级：用最新准确名单替换（旧记录中的学生ID会失效，故一并清除打卡数据）
+    if(d.rosterVersion!==defaultData.rosterVersion){
+      const oldRecords=d.records.length,oldPass=d.groupPass.length,oldRedeem=d.redeems.length;
+      d.classes=JSON.parse(JSON.stringify(defaultData.classes));
+      d.records=[]; d.groupPass=[]; d.redeems=[]; d.adjustments=[];
+      d.rosterVersion=defaultData.rosterVersion;
+      d._migrated=(oldRecords+oldPass+oldRedeem)>0;
+    }
+    d.state=Object.assign({},defaultData.state,d.state||{});
+    d.state.date=today();
+    return d;
+  }catch(e){console.warn('读取失败',e);return JSON.parse(JSON.stringify(defaultData))}
+}
+
+const CLOUD_CONFIG={
+  endpoint:'https://chinese-checkin-scores.app.workbuddy.host',
+  publishableKey:'wbpk_xz7rvez52iYbIk5oYxOvIk_0NOwX4Ep9Gv3eVJl7GAsBd2cwN3FELNX',
+  oauthRelayBaseUrl:'https://www.workbuddy.cn/v2/as/genie-baas/oauth'
+};
+const SUPABASE_KEY='chinese_checkin_supabase_v1';
+let supabaseConfig={url:'',key:''};
+try{
+  const q=new URLSearchParams(location.search);
+  const saved=JSON.parse(localStorage.getItem(SUPABASE_KEY)||'{}');
+  supabaseConfig.url=(q.get('supabaseUrl')||saved.url||'').replace(/\/+$/,'');
+  supabaseConfig.key=q.get('supabaseKey')||saved.key||'';
+  if(supabaseConfig.url&&supabaseConfig.key)localStorage.setItem(SUPABASE_KEY,JSON.stringify(supabaseConfig));
+}catch(e){}
+let cloudClient=null;
+if(!supabaseConfig.url||!supabaseConfig.key){
+  try{if(window.WorkBuddyCloud)cloudClient=WorkBuddyCloud.createWorkBuddyCloud({endpoint:CLOUD_CONFIG.endpoint,publishableKey:CLOUD_CONFIG.publishableKey,oauthRelayBaseUrl:CLOUD_CONFIG.oauthRelayBaseUrl})}catch(e){console.warn('cloud init failed',e)}
+}
+function dbReady(){return !!(cloudClient||(supabaseConfig.url&&supabaseConfig.key))}
+function dbSource(){return (supabaseConfig.url&&supabaseConfig.key)?'Supabase':'云端'}
+function supabaseHeaders(json){
+  const h={apikey:supabaseConfig.key,Authorization:'Bearer '+supabaseConfig.key,Accept:'application/json'};
+  if(json)h['Content-Type']='application/json';
+  return h;
+}
+async function dbSelectMain(){
+  if(supabaseConfig.url&&supabaseConfig.key){
+    const r=await fetch(supabaseConfig.url+'/rest/v1/checkin_data?select=payload,rev&id=eq.main',{headers:supabaseHeaders(false)});
+    if(!r.ok)throw new Error('Supabase 读取失败 '+r.status);
+    const arr=await r.json();
+    return Array.isArray(arr)&&arr[0]?{payload:arr[0].payload,rev:Number(arr[0].rev||0)}:null;
+  }
+  if(!cloudClient)return null;
+  const {data:row,error}=await cloudClient.database.from('checkin_data').select('payload,rev').eq('id','main').maybeSingle();
+  if(error)throw error;
+  return row;
+}
+async function dbSaveCheckin(payload,expectRev){
+  if(supabaseConfig.url&&supabaseConfig.key){
+    const r=await fetch(supabaseConfig.url+'/rest/v1/rpc/save_checkin',{method:'POST',headers:supabaseHeaders(true),body:JSON.stringify({p_payload:payload,p_expect_rev:expectRev})});
+    if(!r.ok){let msg='';try{msg=(await r.json()).message||''}catch(e){}throw new Error('Supabase 写入失败 '+r.status+(msg?'：'+msg:''))}
+    return Number(await r.json());
+  }
+  if(!cloudClient)throw new Error('no cloud client');
+  const {data:newRev,error}=await cloudClient.database.rpc('save_checkin',{p_payload:payload,p_expect_rev:expectRev});
+  if(error)throw error;
+  return Number(newRev);
+}
+const SYNC_ARRAYS=['records','groupPass','redeems','adjustments'];
+let cloudRev=0,cloudBusy=false,cloudPending=false,cloudPushTimer=null,cloudOK=false,cloudBootDone=false;
+let prevSyncIds=null,prevSettingsStr=null,cloudErrMsg='';
+function updateCloudChip(){
+  const el=document.getElementById('cloudChip');if(!el)return;
+  const src=dbSource();
+  el.textContent=cloudOK?('☁ '+src+' 已同步'):(dbReady()?('☁ '+src+' 同步失败'):'☁ 未连接');
+  el.style.color=cloudOK?'#86efac':'#fca5a5';
+  el.title=cloudOK?'点击顶部「云端同步」查看状态':('原因：'+(cloudErrMsg||'未知错误')+'（点击顶部「云端同步」诊断）');
+}
+function collectSyncMeta(d){
+  const ids={};SYNC_ARRAYS.forEach(k=>ids[k]=new Set((d[k]||[]).map(r=>r.id)));
+  if(prevSyncIds){
+    d._tomb=d._tomb||[];
+    SYNC_ARRAYS.forEach(k=>{prevSyncIds[k].forEach(id=>{if(!ids[k].has(id)&&d._tomb.indexOf(id)<0)d._tomb.push(id)})});
+    if(d._tomb.length>2000)d._tomb=d._tomb.slice(-2000);
+  }
+  prevSyncIds=ids;
+  const st=JSON.stringify({h:d.homeworks,di:d.dictations,b:d.behaviors,p:d.passScores,c:d.classes});
+  if(prevSettingsStr!==null&&st!==prevSettingsStr)d._settingsTs=Date.now();
+  prevSettingsStr=st;
+}
+function applyRemoteSettings(d,rp){
+  d.homeworks=rp.homeworks;d.dictations=rp.dictations;d.behaviors=rp.behaviors;d.passScores=rp.passScores;d.classes=rp.classes;d._settingsTs=rp._settingsTs;
+  prevSettingsStr=JSON.stringify({h:d.homeworks,di:d.dictations,b:d.behaviors,p:d.passScores,c:d.classes});
+}
+function mergeRemote(d,rp){
+  if(!rp||!rp.classes)return d;
+  const tomb=new Set(d._tomb||[]);
+  SYNC_ARRAYS.forEach(k=>{
+    const map={};(rp[k]||[]).forEach(r=>{if(!tomb.has(r.id))map[r.id]=r});
+    (d[k]||[]).forEach(r=>{map[r.id]=r});
+    d[k]=Object.values(map).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  });
+  (rp._tomb||[]).forEach(id=>{if(!tomb.has(id)){(d._tomb=d._tomb||[]).push(id);tomb.add(id)}});
+  if((rp._settingsTs||0)>(d._settingsTs||0))applyRemoteSettings(d,rp);
+  return d;
+}
+async function cloudPull(){return dbSelectMain()}
+async function cloudPushNow(){
+  if(cloudBusy){cloudPending=true;return}
+  cloudBusy=true;
+  try{
+    if(!dbReady())throw new Error('no cloud data source');
+    const row=await cloudPull();
+    if(row){mergeRemote(data,row.payload||{});cloudRev=row.rev||0}
+    const clean=JSON.parse(JSON.stringify(data));
+    const newRev=await dbSaveCheckin(clean,cloudRev);
+    cloudRev=Number(newRev);cloudOK=true;updateCloudChip();
+  }catch(e){cloudOK=false;cloudErrMsg=(e&&e.message)||String(e);updateCloudChip();console.warn('cloud push failed',cloudErrMsg)}
+  finally{cloudBusy=false;if(cloudPending){cloudPending=false;scheduleCloudPush()}}
+}
+function scheduleCloudPush(){
+  if(!cloudBootDone)return;
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer=setTimeout(cloudPushNow,600);
+}
+function refreshAfterCloud(){
+  normRoster();
+  const cur=document.querySelector('.page.active');
+  const p=cur?cur.id.replace('page-',''):(data.state.tab||'checkin');
+  renderTop();renderPage(p);
+}
+async function cloudBootstrap(){
+  if(!dbReady()){updateCloudChip();cloudBootDone=true;return}
+  try{
+    const row=await cloudPull();
+    if(row&&row.payload&&row.payload.classes){
+      mergeRemote(data,row.payload);
+      cloudRev=row.rev||0;
+      localStorage.setItem(KEY,JSON.stringify(data));
+      refreshAfterCloud();
+    }else{
+      cloudRev=row?(row.rev||0):0;
+      // main 记录不存在时先初始化，否则 save_checkin 的 UPDATE 匹配不到行，会一直 revision conflict
+      if(!row&&supabaseConfig.url&&supabaseConfig.key){
+        const ir=await fetch(supabaseConfig.url+'/rest/v1/checkin_data',{
+          method:'POST',
+          headers:Object.assign(supabaseHeaders(true),{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+          body:JSON.stringify({id:'main',payload:{},rev:0})
+        });
+        if(!ir.ok){let m='';try{m=(await ir.json()).message||''}catch(e){}throw new Error('初始化共享记录失败 '+ir.status+(m?'：'+m:''))}
+      }
+      await cloudPushNow();
+    }
+    cloudOK=true;
+  }catch(e){cloudOK=false;cloudErrMsg=(e&&e.message)||String(e);console.warn('cloud bootstrap failed',cloudErrMsg)}
+  updateCloudChip();cloudBootDone=true;
+}
+setInterval(async()=>{
+  if(cloudBusy||!dbReady()||!cloudBootDone)return;
+  try{
+    const row=await cloudPull();
+    if(row&&row.rev>cloudRev){
+      mergeRemote(data,row.payload||{});cloudRev=row.rev||0;
+      localStorage.setItem(KEY,JSON.stringify(data));
+      refreshAfterCloud();
+    }
+  }catch(e){}
+},4000);
+
+function save(){
+  collectSyncMeta(data);
+  localStorage.setItem(KEY,JSON.stringify(data));
+  scheduleCloudPush();
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800)}
+
+/* 学生ID规范化：保证名单结构统一 */
+function normRoster(){
+  Object.values(data.classes).forEach(c=>{
+    c.groups.forEach(g=>{
+      g.students=(g.students||[]).map(s=>Array.isArray(s)?{id:s[0]||uid(),name:s[1]||s[0]||'未命名'}:s);
+      g.students.forEach(s=>{if(!s.id)s.id=uid(); if(!s.name)s.name='未命名'});
+    });
+  });
+}
+normRoster();
+
+/* ==================== 工具 ==================== */
+function $(s,root=document){return root.querySelector(s)}
+function $$(s,root=document){return Array.from(root.querySelectorAll(s))}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function curClass(){return data.classes[data.state.classId]}
+function dateOf(r){return r.date}
+function inRange(dateStr,range){
+  const d=new Date(dateStr+'T00:00:00');
+  if(range==='term')return true;
+  const n=new Date();
+  if(range==='month')return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth();
+  // week: Monday start
+  const m=new Date(n);m.setHours(0,0,0,0);
+  const day=(m.getDay()+6)%7;m.setDate(m.getDate()-day);
+  const end=new Date(m);end.setDate(end.getDate()+7);
+  return d>=m&&d<end;
+}
+function rangeDesc(range){
+  const n=new Date();
+  if(range==='term')return '统计范围：本学年学期内全部记录（滚动累计）';
+  if(range==='month')return `统计范围：${n.getFullYear()}年${n.getMonth()+1}月 1日 至 月末`;
+  const m=new Date(n);m.setHours(0,0,0,0);const day=(m.getDay()+6)%7;m.setDate(m.getDate()-day);
+  const e=new Date(m);e.setDate(e.getDate()+6);
+  return `统计范围：${fmt(m)} 至 ${fmt(e)}（周一至周日）`;
+}
+function fmt(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function fmtShort(s){return s?s.slice(5):''}
+function parseDate(s){return new Date((s||today())+'T00:00:00')}
+function addDays(s,n){const d=parseDate(s);d.setDate(d.getDate()+n);return fmt(d)}
+/* 取某日期所在周（周一至周日） */
+function weekInfo(s){
+  const d=parseDate(s),day=(d.getDay()+6)%7;
+  const mon=new Date(d);mon.setHours(0,0,0,0);mon.setDate(mon.getDate()-day);
+  const days=[];for(let i=0;i<7;i++){const x=new Date(mon);x.setDate(x.getDate()+i);days.push(fmt(x))}
+  return {start:fmt(mon),end:days[6],days};
+}
+/* 同步设置打卡日期（含顶部与各标签页日期框） */
+function setDate(v){
+  if(!v)return;
+  data.state.date=v;
+  ['#dateInput','#hwDateInput','#dicDateInput','#behDateInput'].forEach(s=>{const el=$(s);if(el)el.value=v});
+  save();renderCheckin();
+}
+
+/* 统计某班某范围的数据 */
+function calc(classId,range,dateFilter){
+  const cls=data.classes[classId];
+  const recs=data.records.filter(r=>r.classId===classId&&(dateFilter?dateFilter(r):inRange(r.date,range)));
+  const passes=data.groupPass.filter(r=>r.classId===classId&&(dateFilter?dateFilter(r):inRange(r.date,range)));
+  const students={},groups={};
+  cls.groups.forEach(g=>{
+    groups[g.id]={id:g.id,name:g.name,point:0,passBonus:0,studentIds:[]};
+    g.students.forEach(s=>{
+      students[s.id]={id:s.id,name:s.name,groupId:g.id,groupName:g.name,point:0,couponCut:0};
+      groups[g.id].studentIds.push(s.id);
+    });
+  });
+  recs.forEach(r=>{
+    if(students[r.studentId]){
+      if(r.point>0)students[r.studentId].point+=r.point;
+      if(r.coupon<0)students[r.studentId].couponCut+=-r.coupon;
+      if(r.point>0&&groups[r.groupId])groups[r.groupId].point+=r.point;
+    }
+  });
+  passes.forEach(p=>{if(groups[p.groupId]){groups[p.groupId].point+=p.score;groups[p.groupId].passBonus+=p.score}});
+  // 学期累计（免作业用）
+  const termRecs=data.records.filter(r=>r.classId===classId);
+  const termPass=data.groupPass.filter(r=>r.classId===classId);
+  const termGroupPoint={};cls.groups.forEach(g=>termGroupPoint[g.id]=0);
+  termRecs.forEach(r=>{if(r.point>0&&termGroupPoint[r.groupId]!==undefined)termGroupPoint[r.groupId]+=r.point});
+  termPass.forEach(p=>{if(termGroupPoint[p.groupId]!==undefined)termGroupPoint[p.groupId]+=p.score});
+  const termCut={};Object.keys(students).forEach(id=>termCut[id]=0);
+  termRecs.forEach(r=>{if(termCut[r.studentId]!==undefined&&r.coupon<0)termCut[r.studentId]+=-r.coupon});
+  // 兑换次数（兑换后扣除免作业次数）
+  const termRedeem={};Object.keys(students).forEach(id=>termRedeem[id]=0);
+  data.redeems.filter(r=>r.classId===classId).forEach(r=>{if(termRedeem[r.studentId]!==undefined)termRedeem[r.studentId]++});
+  // 老师手动加减免作业机会（delta 正为加、负为扣）
+  const termAdjust={};Object.keys(students).forEach(id=>termAdjust[id]=0);
+  (data.adjustments||[]).filter(r=>r.classId===classId).forEach(r=>{if(termAdjust[r.studentId]!==undefined)termAdjust[r.studentId]+=(Number(r.delta)||0)});
+  Object.values(groups).forEach(g=>{
+    g.termPoint=termGroupPoint[g.id]||0;
+    g.coupons=Math.floor(g.termPoint/5);
+    g.remainder=g.termPoint%5;
+  });
+  Object.values(students).forEach(s=>{
+    s.termCut=termCut[s.id]||0;
+    s.termRedeem=termRedeem[s.id]||0;
+    s.termAdjust=termAdjust[s.id]||0;
+    s.coupons=(groups[s.groupId]?groups[s.groupId].coupons:0)-s.termCut-s.termRedeem+s.termAdjust;
+  });
+  return {students,groups,recs,passes};
+}
+
+/* ==================== 渲染：顶部 & 导航 ==================== */
+function renderTop(){
+  const cs=$('#classSel'),es=$('#editClassSel');
+  const opts=Object.keys(data.classes).map(k=>`<option value="${k}" ${k===data.state.classId?'selected':''}>${esc(data.classes[k].name)}</option>`).join('');
+  cs.innerHTML=opts;es.innerHTML=opts;
+  $('#dateInput').value=data.state.date;
+}
+$$('.nav button').forEach(b=>b.onclick=()=>{
+  $$('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  $$('.page').forEach(p=>p.classList.remove('active'));
+  $('#page-'+b.dataset.page).classList.add('active');
+  renderPage(b.dataset.page);
+});
+function renderPage(p){
+  if(p==='checkin')renderCheckin();
+  else if(p==='weekly')renderWeekly();
+  else if(p==='stats')renderStats();
+  else if(p==='coupon')renderCoupon();
+  else if(p==='settings')renderSettings();
+}
+
+/* ==================== 渲染：打卡 ==================== */
+$$('.tabs button[data-tab]').forEach(b=>b.onclick=()=>{
+  $$('.tabs button[data-tab]').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  data.state.tab=b.dataset.tab;save();
+  ['homework','dictation','behavior'].forEach(t=>$('#tab-'+t).style.display=(t===b.dataset.tab?'block':'none'));
+  renderCheckin();
+});
+
+function renderCheckin(){
+  const date=data.state.date,cid=data.state.classId;
+  ['#dateInput','#hwDateInput','#dicDateInput','#behDateInput'].forEach(s=>{const el=$(s);if(el&&el.value!==date)el.value=date});
+  $('#behLogDate').textContent=date;
+  $('#hwDateLabel').textContent='日期：'+date;
+  $('#dicDateLabel').textContent='日期：'+date;
+  const stats=calc(cid,'term',r=>true);
+  const dayRecs=data.records.filter(r=>r.classId===cid&&r.date===date);
+  const dayPass=data.groupPass.filter(r=>r.classId===cid&&r.date===date);
+  const cls=curClass();
+
+  /* 作业 */
+  // 作业项目下拉
+  const hwSel=$('#hwItemSel');
+  if(!data.homeworks.some(h=>h.id===data.state.homeworkId))data.state.homeworkId=data.homeworks[0]?data.homeworks[0].id:'';
+  const curHw=data.homeworks.find(h=>h.id===data.state.homeworkId);
+  hwSel.innerHTML=data.homeworks.map(h=>`<option value="${h.id}" ${h.id===data.state.homeworkId?'selected':''}>${esc(h.name)}</option>`).join('')||'<option value="">请先添加作业项目</option>';
+  const hwName=curHw?curHw.name:'未选择作业';
+  const penSel=$('#hwPenaltySel');
+  if(data.state.hwPenalty===undefined)data.state.hwPenalty=curHw?(curHw.penalty||1):1;
+  penSel.value=String(data.state.hwPenalty);
+  const penalty=Math.max(1,Number(data.state.hwPenalty)||1);
+  const hwRecords=dayRecs.filter(r=>r.category==='homework'&&r.hwId===data.state.homeworkId);
+  let hwDone=0,hwTotal=0;
+  let html='';
+  cls.groups.forEach(g=>{
+    const gp=stats.groups[g.id];
+    html+=`<div class="group"><div class="group-head"><h3>${esc(g.name)}</h3><span class="badge b">本周+${calc(cid,'week').groups[g.id]?.point||0}</span><span class="score">累计 ${gp.termPoint} 分</span></div>`;
+    g.students.forEach(s=>{
+      hwTotal++;
+      const r=hwRecords.find(x=>x.studentId===s.id);
+      if(r)hwDone++;
+      html+=`<div class="student"><span class="name">${esc(s.name)}</span><div class="act">
+        <button class="${r&&r.point>0?'sel-plus':''}" data-hw="submit" data-sid="${s.id}" data-gid="${g.id}" data-name="${esc(s.name)}" data-gname="${esc(g.name)}">交 +1</button>
+        <button class="${r&&r.coupon<0?'sel-minus':''}" data-hw="missing" data-sid="${s.id}" data-gid="${g.id}" data-name="${esc(s.name)}" data-gname="${esc(g.name)}">没交 −${penalty}</button>
+        <button class="${r&&r.point===0&&r.coupon===0?'sel-zero':''}" data-hw="makeup" data-sid="${s.id}" data-gid="${g.id}" data-name="${esc(s.name)}" data-gname="${esc(g.name)}">补 0</button>
+      </div></div>`;
+    });
+    html+=`<div class="group-foot"><button class="btn green sm" data-hwall="${g.id}">全组交</button><span class="muted small">组内 ${g.students.length} 人</span></div></div>`;
+  });
+  $('#hwGroups').innerHTML=html||'<div class="empty">暂无名单，请在设置中添加</div>';
+  $('#hwProgress').textContent=`${hwName}：${hwDone}/${hwTotal} 已记录`;
+  // 本日作业记录（全部作业项目）
+  const hwLogs=dayRecs.filter(r=>r.category==='homework').sort((a,b)=>String(b.hwName||'').localeCompare(String(a.hwName||''),'zh')||b.ts-a.ts);
+  $('#hwLog').innerHTML=hwLogs.length?hwLogs.map(r=>`<div class="log-item"><span class="t">${esc(r.hwName||'未命名作业')}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span>${r.point>0?'<span class="badge g">交 +1</span>':r.coupon<0?`<span class="badge r">没交 −${-r.coupon}</span>`:'<span class="badge">补 0</span>'}<button class="del" data-dellog="${r.id}" title="删除记录">✕</button></div>`).join(''):'<div class="empty small">所选日期暂无作业记录</div>';
+
+  /* 默写听写：按过关内容项目独立记录 */
+  const dictSel=$('#dictItemSel');
+  if(!data.dictations.some(d=>d.id===data.state.dictationId))data.state.dictationId=data.dictations[0]?data.dictations[0].id:'';
+  const curDict=data.dictations.find(d=>d.id===data.state.dictationId);
+  dictSel.innerHTML=data.dictations.map(d=>`<option value="${d.id}" ${d.id===data.state.dictationId?'selected':''}>${esc(d.name)}</option>`).join('')||'<option value="">请先添加过关内容</option>';
+  const dictId=data.state.dictationId,dictName=curDict?curDict.name:'未选择内容';
+  const dictRecords=dayRecs.filter(r=>r.category==='dictation'&&r.dictId===dictId);
+  const dictPass=dayPass.filter(p=>p.dictId===dictId);
+  html='';
+  cls.groups.forEach(g=>{
+    const p=dictPass.find(x=>x.groupId===g.id);
+    html+=`<div class="group"><div class="group-head"><h3>${esc(g.name)}</h3>${p?'<span class="badge g">已全部过关</span>':''}<span class="score">累计 ${stats.groups[g.id].termPoint} 分</span></div>`;
+    g.students.forEach(s=>{
+      const r=dictRecords.find(x=>x.studentId===s.id);
+      html+=`<div class="student"><span class="name">${esc(s.name)}</span><div class="act">
+        <button class="${r&&r.point>0?'sel-plus':''}" data-dic="pass" data-sid="${s.id}" data-gid="${g.id}" data-name="${esc(s.name)}" data-gname="${esc(g.name)}">过关 +1</button>
+        <button class="${r&&r.coupon<0?'sel-minus':''}" data-dic="fail" data-sid="${s.id}" data-gid="${g.id}" data-name="${esc(s.name)}" data-gname="${esc(g.name)}">未过关 −1</button>
+        <button class="${r&&r.point===0&&r.coupon===0?'sel-zero':''}" data-dic="other" data-sid="${s.id}" data-gid="${g.id}" data-name="${esc(s.name)}" data-gname="${esc(g.name)}">其他 0</button>
+      </div></div>`;
+    });
+    html+=`<div class="group-foot"><label class="muted small" style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="dic-sel" value="${g.id}">同时过关</label><button class="btn orange sm" data-dicall="${g.id}" ${p?'disabled':''}>全组过关</button>${p?`<span class="badge o" title="第${p.rank}批 +${p.score}分，勾选后可批量重新标记批次">已第${p.rank}批 +${p.score}</span>`:''}<span class="muted small">${g.students.length} 人</span></div></div>`;
+  });
+  $('#dicGroups').innerHTML=html||'<div class="empty">暂无名单</div>';
+  const sorted=[...dictPass].sort((a,b)=>a.rank-b.rank);
+  // 批次下拉：可指定统一批次，或自动顺延
+  const br=$('#dicBatchRank'),prevRank=br.value;
+  br.innerHTML='<option value="auto">自动顺延（下一批）</option>'+data.passScores.map((v,i)=>`<option value="${i+1}">第${i+1}批 +${v} 分</option>`).join('');
+  br.value=prevRank&&[...br.options].some(o=>o.value===prevRank)?prevRank:'auto';
+  $('#dicProgress').textContent=`${dictName}：${dictRecords.length}/${hwTotal} 已记录`;
+  $('#passOrderBox').innerHTML=`<div class="muted small" style="margin-bottom:6px">${esc(dictName)} · 各批次加分：第1~${data.passScores.length}批 ${data.passScores.map((v,i)=>`<b style="color:var(--orange)">${v}</b>`).join(' / ')} 分（设置中可修改）</div>`+
+    (sorted.length?`过关批次：`+sorted.map(p=>`<span style="display:inline-block;margin:3px 8px 3px 0;padding:3px 10px;background:#fff;border:1px solid var(--line);border-radius:6px"><b>第${p.rank}名</b> ${esc(p.groupName)} <span style="color:var(--orange);font-weight:700">+${p.score}</span></span>`).join(''):
+    '今日暂无小组完成全部过关。');
+  // 本日默写记录（显示全部过关内容，带内容名）
+  const dicLogs=dayRecs.filter(r=>r.category==='dictation').sort((a,b)=>b.ts-a.ts);
+  const passLogs=[...dayPass].sort((a,b)=>a.rank-b.rank);
+  $('#dicLog').innerHTML=(dicLogs.length||passLogs.length)?
+    passLogs.map(p=>`<div class="log-item"><span class="t">${esc(p.dictName||'未命名内容')} · 第${p.rank}名</span><b>${esc(p.groupName)}</b><span class="badge o">全组过关 +${p.score}</span><button class="del" data-delpass="${p.id}" title="删除奖励">✕</button></div>`).join('')+
+    dicLogs.map(r=>`<div class="log-item"><span class="t">${esc(r.dictName||'未命名内容')}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span>${r.point>0?'<span class="badge g">过关 +1</span>':r.coupon<0?'<span class="badge r">未过关 −1</span>':'<span class="badge">其他 0</span>'}<button class="del" data-dellog="${r.id}" title="删除记录">✕</button></div>`).join('')
+    :'<div class="empty small">所选日期暂无默写过关记录</div>';
+
+  /* 课堂表现：独立加分/扣分按钮，可多次点击 */
+  const addItems=data.behaviors.filter(b=>b.type==='add'),subItems=data.behaviors.filter(b=>b.type==='sub');
+  if(!addItems.some(b=>b.id===data.state.behaviorAddId))data.state.behaviorAddId=addItems[0]?addItems[0].id:'';
+  if(!subItems.some(b=>b.id===data.state.behaviorSubId))data.state.behaviorSubId=subItems[0]?subItems[0].id:'';
+  const bas=$('#behaviorAddSel'),bss=$('#behaviorSubSel');
+  bas.innerHTML=addItems.map(b=>`<option value="${b.id}">${esc(b.name)}（+${b.score}）</option>`).join('')||'<option value="">暂无加分项目</option>';
+  bss.innerHTML=subItems.map(b=>`<option value="${b.id}">${esc(b.name)}（−${b.score}）</option>`).join('')||'<option value="">暂无扣分项目</option>';
+  bas.value=data.state.behaviorAddId;bss.value=data.state.behaviorSubId;
+  updateBehHint();
+  const addB=addItems.find(b=>b.id===bas.value),subB=subItems.find(b=>b.id===bss.value);
+  html='';
+  cls.groups.forEach(g=>{
+    html+=`<div class="group"><div class="group-head"><h3>${esc(g.name)}</h3><span class="score">累计 ${stats.groups[g.id].termPoint} 分</span></div>`;
+    g.students.forEach(s=>{
+      const cnt=dayRecs.filter(r=>r.studentId===s.id&&r.category==='behavior').length;
+      html+=`<div class="student"><span class="name">${esc(s.name)}</span>${cnt?`<span class="badge p">${cnt}次</span>`:''}<div class="act">
+        <button class="plus-btn" data-behavior-add="${s.id}" data-gid="${g.id}" data-name="${esc(s.name)}" data-gname="${esc(g.name)}">${addB?esc(addB.name):'加分'} +${addB?addB.score:1}</button>
+        <button class="minus-btn" data-behavior-sub="${s.id}" data-gid="${g.id}" data-name="${esc(s.name)}" data-gname="${esc(g.name)}">${subB?esc(subB.name):'扣分'} −${subB?subB.score:1}</button>
+      </div></div>`;
+    });
+    html+='</div>';
+  });
+  $('#behGroups').innerHTML=html||'<div class="empty">暂无名单</div>';
+  const behs=dayRecs.filter(r=>r.category==='behavior').sort((a,b)=>b.ts-a.ts);
+  $('#behLog').innerHTML=behs.length?behs.map(r=>`<div class="log-item"><span class="t">${new Date(r.ts).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span><span>${esc(r.item)}</span>${r.point>0?`<span class="badge g">日常 +${r.point}</span>`:`<span class="badge r">免作业 −${-r.coupon}</span>`}<button class="del" data-dellog="${r.id}">✕</button></div>`).join(''):'<div class="empty small">暂无记录</div>';
+}
+function updateBehHint(){
+  const a=data.behaviors.find(x=>x.id===$('#behaviorAddSel').value&&x.type==='add');
+  const s=data.behaviors.find(x=>x.id===$('#behaviorSubSel').value&&x.type==='sub');
+  $('#behaviorHint').innerHTML=`加分按钮：<b>${a?esc(a.name):'未设置'}</b> ${a?`日常积分 <span style="color:var(--green);font-weight:700">+${a.score}</span>`:''}　｜　扣分按钮：<b>${s?esc(s.name):'未设置'}</b> ${s?`免作业次数 <span style="color:var(--red);font-weight:700">−${s.score}</span>`:''}。两个按钮均可多次点击，每次点击记录一条。`;
+}
+
+/* 记录操作 */
+function record(category,item,sid,gid,name,gname,point,coupon,extra){
+  const rec={id:uid(),date:data.state.date,classId:data.state.classId,category,item,studentId:sid,groupId:gid,studentName:name,groupName:gname,point,coupon,ts:Date.now()};
+  if(extra)Object.assign(rec,extra);
+  data.records.push(rec);
+  save();renderCheckin();
+}
+function toggleRecord(category,sid,action,makeRecord,extra){
+  const date=data.state.date,cid=data.state.classId;
+  const hwId=extra&&extra.hwId,dictId=extra&&extra.dictId;
+  const idx=data.records.findIndex(r=>r.date===date&&r.classId===cid&&r.category===category&&r.studentId===sid&&(hwId?r.hwId===hwId:true)&&(dictId?r.dictId===dictId:true));
+  if(idx>=0){const r=data.records[idx];if(r._action===action||(r.point>0&&action==='submit')||(r.coupon<0&&action==='missing')||(r.point===0&&(action==='makeup'||action==='other'))){
+      data.records.splice(idx,1);save();renderCheckin();toast('已取消');return;
+    }data.records.splice(idx,1);
+  }
+  makeRecord();
+}
+$('#hwItemSel').onchange=e=>{
+  data.state.homeworkId=e.target.value;
+  const h=data.homeworks.find(x=>x.id===e.target.value);
+  data.state.hwPenalty=h?(h.penalty||1):1;
+  save();renderCheckin();
+};
+$('#hwPenaltySel').onchange=e=>{data.state.hwPenalty=Number(e.target.value)||1;save();renderCheckin()};
+$('#dictItemSel').onchange=e=>{data.state.dictationId=e.target.value;save();renderCheckin()};
+$('#hwGroups').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.hwall){
+    const g=curClass().groups.find(x=>x.id===b.dataset.hwall);
+    const hwId=data.state.homeworkId;
+    const hwName=(data.homeworks.find(h=>h.id===hwId)||{}).name||'作业';
+    g.students.forEach(s=>{
+      const i=data.records.findIndex(r=>r.date===data.state.date&&r.classId===data.state.classId&&r.category==='homework'&&r.hwId===hwId&&r.studentId===s.id);
+      if(i>=0)data.records.splice(i,1);
+      data.records.push({id:uid(),date:data.state.date,classId:data.state.classId,category:'homework',item:'交',hwId,hwName,studentId:s.id,groupId:g.id,studentName:s.name,groupName:g.name,point:1,coupon:0,ts:Date.now()});
+    });
+    save();renderCheckin();toast(`${hwName}：已标记全组交`);return;
+  }
+  const t=b.dataset.hw;if(!t)return;
+  const hwId=data.state.homeworkId;
+  if(!hwId){toast('请先在设置中添加作业项目');return}
+  const hwName=(data.homeworks.find(h=>h.id===hwId)||{}).name||'作业';
+  const {sid,gid,name,gname}=b.dataset;
+  const missPen=Math.max(1,Number($('#hwPenaltySel').value)||1);
+  const cfg={submit:['交',1,0],missing:['没交',0,-missPen],makeup:['补',0,0]}[t];
+  toggleRecord('homework',sid,t,()=>record('homework',cfg[0],sid,gid,name,gname,cfg[1],cfg[2],{hwId,hwName}),{hwId});
+});
+/* 按已过关批次计算下一名次与对应加分 */
+function passRankInfo(dictId){
+  const recs=data.groupPass.filter(p=>p.date===data.state.date&&p.classId===data.state.classId&&p.dictId===dictId);
+  const rank=recs.length?Math.max(...recs.map(p=>p.rank))+1:1;
+  const v=data.passScores[Math.min(rank-1,data.passScores.length-1)];
+  return {rank,score:v===undefined?0:v};
+}
+$('#dicGroups').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const dictId=data.state.dictationId;
+  const dictName=(data.dictations.find(d=>d.id===dictId)||{}).name||'默写内容';
+  if(b.dataset.dicall){
+    const gid=b.dataset.dicall;
+    if(!dictId){toast('请先在设置中添加过关内容');return}
+    if(data.groupPass.some(p=>p.date===data.state.date&&p.classId===data.state.classId&&p.dictId===dictId&&p.groupId===gid))return;
+    const {rank,score}=passRankInfo(dictId);
+    const g=curClass().groups.find(x=>x.id===gid);
+    data.groupPass.push({id:uid(),date:data.state.date,classId:data.state.classId,dictId,dictName,groupId:gid,groupName:g.name,rank,score,ts:Date.now()});
+    save();renderCheckin();toast(`${dictName}：${g.name} 第${rank}批过关，小组 +${score} 分`);return;
+  }
+  const t=b.dataset.dic;if(!t)return;
+  if(!dictId){toast('请先在设置中添加过关内容');return}
+  const {sid,gid,name,gname}=b.dataset;
+  const cfg=t==='pass'?['过关',1,0]:t==='fail'?['未过关',0,-1]:['其他',0,0];
+  toggleRecord('dictation',sid,t,()=>record('dictation',cfg[0],sid,gid,name,gname,cfg[1],cfg[2],{_action:t,dictId,dictName}),{dictId});
+});
+$('#behGroups').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-behavior-add],button[data-behavior-sub]');if(!b)return;
+  const isAdd=!!b.dataset.behaviorAdd;
+  const sel=isAdd?$('#behaviorAddSel'):$('#behaviorSubSel');
+  const beh=data.behaviors.find(x=>x.id===sel.value&&x.type===(isAdd?'add':'sub'));
+  if(!beh){toast(isAdd?'请先在设置中添加加分项目':'请先在设置中添加扣分项目');return}
+  const sid=isAdd?b.dataset.behaviorAdd:b.dataset.behaviorSub;
+  const {gid,name,gname}=b.dataset;
+  record('behavior',beh.name,sid,gid,name,gname,isAdd?beh.score:0,isAdd?0:-beh.score,{_action:isAdd?'add':'sub'});
+  toast(`${name} ${beh.name} ${isAdd?'+'+beh.score+' 分':'−'+beh.score+' 次免作业'}`);
+});
+$('#behaviorAddSel').onchange=e=>{data.state.behaviorAddId=e.target.value;save();renderCheckin()};
+$('#behaviorSubSel').onchange=e=>{data.state.behaviorSubId=e.target.value;save();renderCheckin()};
+/* 统一处理：日期导航、删除记录（覆盖所有标签页与周总表） */
+function afterRecordChange(){
+  renderCheckin();
+  if($('#page-weekly'))renderWeekly();
+}
+document.addEventListener('click',e=>{
+  const nav=e.target.closest('button[data-daynav]');
+  if(nav){const n=Number(nav.dataset.daynav);setDate(n===0?today():addDays(data.state.date,n));return}
+  const del=e.target.closest('button[data-dellog]');
+  if(del){data.records=data.records.filter(r=>r.id!==del.dataset.dellog);save();afterRecordChange();toast('已删除记录');return}
+  const dp=e.target.closest('button[data-delpass]');
+  if(dp){data.groupPass=data.groupPass.filter(p=>p.id!==dp.dataset.delpass);save();afterRecordChange();toast('已删除过关奖励');return}
+});
+['#hwDateInput','#dicDateInput','#behDateInput'].forEach(s=>{$(s).onchange=e=>setDate(e.target.value||today())});
+$('#hwAllSubmit').onclick=()=>{
+  const hwId=data.state.homeworkId;
+  if(!hwId){toast('请先添加作业项目');return}
+  const hwName=(data.homeworks.find(h=>h.id===hwId)||{}).name||'作业';
+  curClass().groups.forEach(gr=>gr.students.forEach(s=>{
+    const i=data.records.findIndex(r=>r.date===data.state.date&&r.classId===data.state.classId&&r.category==='homework'&&r.hwId===hwId&&r.studentId===s.id);
+    if(i>=0)data.records.splice(i,1);
+    data.records.push({id:uid(),date:data.state.date,classId:data.state.classId,category:'homework',item:'交',hwId,hwName,studentId:s.id,groupId:gr.id,studentName:s.name,groupName:gr.name,point:1,coupon:0,ts:Date.now()});
+  }));save();renderCheckin();toast(`${hwName}：全班已标记"交"`);
+};
+$('#hwClear').onclick=()=>{
+  const hwId=data.state.homeworkId;
+  const hwName=(data.homeworks.find(h=>h.id===hwId)||{}).name||'作业';
+  if(!confirm(`确定清除"${hwName}"本班本日的打卡记录？`))return;
+  data.records=data.records.filter(r=>!(r.date===data.state.date&&r.classId===data.state.classId&&r.category==='homework'&&r.hwId===hwId));
+  save();renderCheckin();toast('已清除');
+};
+$('#dicBatch').onclick=()=>{
+  const dictId=data.state.dictationId;
+  if(!dictId){toast('请先在设置中添加过关内容');return}
+  const gids=$$('#dicGroups input.dic-sel:checked').map(el=>el.value);
+  if(!gids.length){toast('请先勾选要同时过关的小组');return}
+  const dictName=(data.dictations.find(d=>d.id===dictId)||{}).name||'默写内容';
+  // 指定批次 or 自动顺延
+  const rankSel=$('#dicBatchRank').value;
+  let rank,score;
+  if(rankSel&&rankSel!=='auto'){rank=Number(rankSel);score=data.passScores[rank-1]===undefined?0:data.passScores[rank-1]}
+  else{const info=passRankInfo(dictId);rank=info.rank;score=info.score}
+  let added=0;
+  gids.forEach(gid=>{
+    const g=curClass().groups.find(x=>x.id===gid);if(!g)return;
+    // 移除该组本项本日旧的过关奖励（支持重新标记批次）
+    const oldIdx=data.groupPass.findIndex(p=>p.date===data.state.date&&p.classId===data.state.classId&&p.dictId===dictId&&p.groupId===gid);
+    if(oldIdx>=0)data.groupPass.splice(oldIdx,1);
+    data.groupPass.push({id:uid(),date:data.state.date,classId:data.state.classId,dictId,dictName,groupId:gid,groupName:g.name,rank,score,ts:Date.now()});
+    added++;
+  });
+  save();renderCheckin();
+  toast(added?`${added} 个小组同时过关，均记第 ${rank} 批，各 +${score} 分`:'所选小组均已过关');
+};
+$('#dicResetOrder').onclick=()=>{
+  const dictId=data.state.dictationId;
+  const dn=(data.dictations.find(d=>d.id===dictId)||{}).name||'当前内容';
+  if(!confirm(`确定重置"${dn}"本班本日小组全部过关次序？相关小组加分也会删除。`))return;
+  data.groupPass=data.groupPass.filter(p=>!(p.date===data.state.date&&p.classId===data.state.classId&&p.dictId===dictId));
+  save();renderCheckin();toast('已重置');
+};
+
+/* ==================== 渲染：周总表 ==================== */
+function renderWeekly(){
+  const cid=data.state.classId,cls=data.classes[cid];
+  const wd=data.state.weekDate||today(),wk=weekInfo(wd);
+  $('#wkDateInput').value=wd;
+  $('#wkDesc').textContent=`周次：${wk.start}（周一）至 ${wk.end}（周日）　班级：${cls.name}`;
+  // 作业项目下拉
+  const hwSel=$('#weekHwSel');
+  if(data.state.weekHwId!=='__all__'&&!data.homeworks.some(h=>h.id===data.state.weekHwId))data.state.weekHwId='__all__';
+  hwSel.innerHTML='<option value="__all__">全部作业</option>'+data.homeworks.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');
+  hwSel.value=data.state.weekHwId;
+  const hwId=hwSel.value;
+  const hwLabel=hwId==='__all__'?'全部作业':((data.homeworks.find(h=>h.id===hwId)||{}).name||'作业');
+  // 默写内容下拉
+  const dictSel=$('#weekDictSel');
+  if(data.state.weekDictId!=='__all__'&&!data.dictations.some(d=>d.id===data.state.weekDictId))data.state.weekDictId='__all__';
+  dictSel.innerHTML='<option value="__all__">全部默写</option>'+data.dictations.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('');
+  dictSel.value=data.state.weekDictId;
+  const dictId=dictSel.value;
+  const dictLabel=dictId==='__all__'?'全部默写':((data.dictations.find(d=>d.id===dictId)||{}).name||'默写');
+  // 本周作业记录（按作业项目过滤）
+  const recs=data.records.filter(r=>r.classId===cid&&r.category==='homework'&&wk.days.includes(r.date)&&(hwId==='__all__'||r.hwId===hwId));
+  const total=cls.groups.reduce((a,g)=>a+g.students.length,0);
+  const wdNames=['周一','周二','周三','周四','周五','周六','周日'];
+  const subN=recs.filter(r=>r.point>0).length,misN=recs.filter(r=>r.coupon<0).length,mkN=recs.filter(r=>r.point===0&&r.coupon===0).length;
+  const activeDays=wk.days.filter(d=>recs.some(r=>r.date===d)).length;
+  $('#wkCards').innerHTML=`
+    <div class="stat-card"><div class="label">班级人数</div><div class="val">${total}</div></div>
+    <div class="stat-card"><div class="label">本周已交人次（${esc(hwLabel)}）</div><div class="val g">${subN}</div></div>
+    <div class="stat-card"><div class="label">本周未交人次</div><div class="val" style="color:var(--red)">${misN}</div></div>
+    <div class="stat-card"><div class="label">有打卡记录天数</div><div class="val o">${activeDays}/7</div></div>`;
+  // 每日提交汇总
+  let dailyRows='';
+  wk.days.forEach((d,i)=>{
+    const rs=recs.filter(r=>r.date===d);
+    const s=rs.filter(r=>r.point>0).length,m=rs.filter(r=>r.coupon<0).length,k=rs.filter(r=>r.point===0&&r.coupon===0).length;
+    const none=Math.max(0,total-rs.length);
+    const rate=rs.length?Math.round(s/rs.length*100):0;
+    dailyRows+=`<tr><td><b>${wdNames[i]}</b> <span class="muted small">${d.slice(5)}</span></td><td class="num">${total}</td><td class="num" style="color:var(--green);font-weight:700">${s}</td><td class="num" style="color:var(--red);font-weight:700">${m}</td><td class="num">${k}</td><td class="num muted">${none}</td><td class="num"><span class="badge ${rate>=90?'g':rate>=60?'o':'r'}">${rate}%</span></td></tr>`;
+  });
+  const rateAll=recs.length?Math.round(subN/recs.length*100):0;
+  dailyRows+=`<tr style="background:#f8fafc;font-weight:700"><td>本周合计</td><td class="num">${total*7}</td><td class="num" style="color:var(--green)">${subN}</td><td class="num" style="color:var(--red)">${misN}</td><td class="num">${mkN}</td><td class="num muted">${Math.max(0,total*7-recs.length)}</td><td class="num">${rateAll}%</td></tr>`;
+  $('#wkDailyTable').innerHTML=`<thead><tr><th>日期</th><th class="num">应交人次</th><th class="num">已交</th><th class="num">未交</th><th class="num">补交</th><th class="num">未记录</th><th class="num">提交率</th></tr></thead><tbody>${dailyRows}</tbody>`;
+  // 学生每日明细矩阵
+  let mh='<thead><tr><th>小组</th><th>姓名</th>'+wk.days.map((d,i)=>`<th>${wdNames[i]}<br><span class="muted small" style="font-weight:400">${d.slice(5)}</span></th>`).join('')+'<th class="num">交</th><th class="num">未交</th></tr></thead><tbody>';
+  let mb='';
+  cls.groups.forEach(g=>{
+    g.students.forEach(s=>{
+      let totS=0,totM=0;
+      const cells=wk.days.map(d=>{
+        const rs=recs.filter(r=>r.date===d&&r.studentId===s.id);
+        if(!rs.length)return '<td class="wk-cell"></td>';
+        const s1=rs.filter(r=>r.point>0).length,m1=rs.filter(r=>r.coupon<0).length,k1=rs.filter(r=>r.point===0&&r.coupon===0).length;
+        totS+=s1;totM+=m1;
+        const parts=[];if(s1)parts.push('✓'+s1);if(m1)parts.push('✗'+m1);if(k1)parts.push('补'+k1);
+        return `<td class="wk-cell ${m1?'c-no':(s1?'c-ok':'c-mk')}">${parts.join(' ')}</td>`;
+      }).join('');
+      mb+=`<tr><td>${esc(g.name)}</td><td><b>${esc(s.name)}</b></td>${cells}<td class="num" style="color:var(--green)">${totS}</td><td class="num" style="color:var(--red)">${totM}</td></tr>`;
+    });
+  });
+  $('#wkMatrixTable').innerHTML=mh+(mb||`<tr><td colspan="11" class="muted">暂无名单</td></tr>`)+'</tbody>';
+  // 周记录列表
+  const logs=[...recs].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
+  $('#wkLog').innerHTML=logs.length?logs.map(r=>`<div class="log-item"><span class="t">${r.date.slice(5)} ${new Date(r.ts).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span><span class="muted small">${esc(r.hwName||'作业')}</span>${r.point>0?'<span class="badge g">交 +1</span>':r.coupon<0?`<span class="badge r">没交 −${-r.coupon}</span>`:'<span class="badge">补 0</span>'}<button class="del" data-dellog="${r.id}" title="删除记录">✕</button></div>`).join(''):'<div class="empty small">本周暂无作业记录</div>';
+
+  /* ===== 默写听写过关周统计 ===== */
+  const dictRecs=data.records.filter(r=>r.classId===cid&&r.category==='dictation'&&wk.days.includes(r.date)&&(dictId==='__all__'||r.dictId===dictId));
+  const dictPass=data.groupPass.filter(p=>p.classId===cid&&wk.days.includes(p.date)&&(dictId==='__all__'||p.dictId===dictId));
+  const dPass=dictRecs.filter(r=>r.point>0).length,dFail=dictRecs.filter(r=>r.coupon<0).length,dOther=dictRecs.filter(r=>r.point===0&&r.coupon===0).length;
+  const dBonus=dictPass.reduce((a,p)=>a+(p.score||0),0);
+  const dActiveDays=wk.days.filter(d=>dictRecs.some(r=>r.date===d)||dictPass.some(p=>p.date===d)).length;
+  $('#wkDictCards').innerHTML=`
+    <div class="stat-card"><div class="label">过关人次（${esc(dictLabel)}）</div><div class="val g">${dPass}</div></div>
+    <div class="stat-card"><div class="label">未过关人次</div><div class="val" style="color:var(--red)">${dFail}</div></div>
+    <div class="stat-card"><div class="label">其他人次</div><div class="val">${dOther}</div></div>
+    <div class="stat-card"><div class="label">小组过关奖励合计</div><div class="val o">+${dBonus}</div></div>
+    <div class="stat-card"><div class="label">有记录天数</div><div class="val b">${dActiveDays}/7</div></div>`;
+  let ddRows='';
+  wk.days.forEach((d,i)=>{
+    const rs=dictRecs.filter(r=>r.date===d),ps=dictPass.filter(p=>p.date===d);
+    const p=rs.filter(r=>r.point>0).length,f=rs.filter(r=>r.coupon<0).length,o=rs.filter(r=>r.point===0&&r.coupon===0).length;
+    const bonus=ps.reduce((a,x)=>a+(x.score||0),0);
+    ddRows+=`<tr><td><b>${wdNames[i]}</b> <span class="muted small">${d.slice(5)}</span></td><td class="num" style="color:var(--green);font-weight:700">${p}</td><td class="num" style="color:var(--red);font-weight:700">${f}</td><td class="num">${o}</td><td class="num" style="color:var(--orange)">+${bonus}</td><td class="num muted">${ps.length} 组</td></tr>`;
+  });
+  ddRows+=`<tr style="background:#f8fafc;font-weight:700"><td>本周合计</td><td class="num" style="color:var(--green)">${dPass}</td><td class="num" style="color:var(--red)">${dFail}</td><td class="num">${dOther}</td><td class="num" style="color:var(--orange)">+${dBonus}</td><td class="num">${dictPass.length} 组</td></tr>`;
+  $('#wkDictDailyTable').innerHTML=`<thead><tr><th>日期</th><th class="num">过关（+1）</th><th class="num">未过关（−1）</th><th class="num">其他（0）</th><th class="num">全组过关奖励</th><th class="num">过关小组数</th></tr></thead><tbody>${ddRows}</tbody>`;
+  // 学生默写明细矩阵
+  let dmh='<thead><tr><th>小组</th><th>姓名</th>'+wk.days.map((d,i)=>`<th>${wdNames[i]}<br><span class="muted small" style="font-weight:400">${d.slice(5)}</span></th>`).join('')+'<th class="num">过关</th><th class="num">未过</th></tr></thead><tbody>';
+  let dmb='';
+  cls.groups.forEach(g=>{
+    g.students.forEach(s=>{
+      let tp=0,tf=0;
+      const cells=wk.days.map(d=>{
+        const rs=dictRecs.filter(r=>r.date===d&&r.studentId===s.id);
+        if(!rs.length)return '<td class="wk-cell"></td>';
+        const p=rs.filter(r=>r.point>0).length,f=rs.filter(r=>r.coupon<0).length,o=rs.filter(r=>r.point===0&&r.coupon===0).length;
+        tp+=p;tf+=f;
+        const parts=[];if(p)parts.push('✓'+p);if(f)parts.push('✗'+f);if(o)parts.push('他'+o);
+        return `<td class="wk-cell ${f?'c-no':(p?'c-ok':'c-mk')}">${parts.join(' ')}</td>`;
+      }).join('');
+      dmb+=`<tr><td>${esc(g.name)}</td><td><b>${esc(s.name)}</b></td>${cells}<td class="num" style="color:var(--green)">${tp}</td><td class="num" style="color:var(--red)">${tf}</td></tr>`;
+    });
+  });
+  $('#wkDictMatrixTable').innerHTML=dmh+(dmb||`<tr><td colspan="10" class="muted">暂无名单</td></tr>`)+'</tbody>';
+  const dLogs=[...dictPass].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts).map(p=>({date:p.date,ts:p.ts,studentName:p.groupName,groupName:'',hwName:p.dictName||'默写',badge:`<span class="badge o">第${p.rank}名 全组过关 +${p.score}</span>`,id:p.id,isPass:true}))
+    .concat([...dictRecs].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts).map(r=>({date:r.date,ts:r.ts,studentName:r.studentName,groupName:r.groupName,hwName:r.dictName||'默写',badge:r.point>0?'<span class="badge g">过关 +1</span>':r.coupon<0?'<span class="badge r">未过关 −1</span>':'<span class="badge">其他 0</span>',id:r.id})));
+  dLogs.sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
+  $('#wkDictLog').innerHTML=dLogs.length?dLogs.map(r=>`<div class="log-item"><span class="t">${r.date.slice(5)} ${new Date(r.ts).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b>${r.groupName?`<span class="muted">${esc(r.groupName)}</span>`:''}<span class="muted small">${esc(r.hwName)}</span>${r.badge}${r.isPass?`<button class="del" data-delpass="${r.id}" title="撤销奖励">✕</button>`:`<button class="del" data-dellog="${r.id}" title="删除记录">✕</button>`}</div>`).join(''):'<div class="empty small">本周暂无默写过关记录</div>';
+
+  /* ===== 课堂表现周统计 ===== */
+  const behRecs=data.records.filter(r=>r.classId===cid&&r.category==='behavior'&&wk.days.includes(r.date));
+  const bAdd=behRecs.filter(r=>r.point>0),bSub=behRecs.filter(r=>r.coupon<0);
+  const bAddSum=bAdd.reduce((a,r)=>a+r.point,0),bSubSum=bSub.reduce((a,r)=>a+(-r.coupon),0);
+  const bActiveDays=wk.days.filter(d=>behRecs.some(r=>r.date===d)).length;
+  $('#wkBehCards').innerHTML=`
+    <div class="stat-card"><div class="label">加分次数</div><div class="val g">${bAdd.length}</div></div>
+    <div class="stat-card"><div class="label">加分合计</div><div class="val g">+${bAddSum}</div></div>
+    <div class="stat-card"><div class="label">扣分次数</div><div class="val" style="color:var(--red)">${bSub.length}</div></div>
+    <div class="stat-card"><div class="label">扣分合计（免作业）</div><div class="val" style="color:var(--red)">−${bSubSum}</div></div>
+    <div class="stat-card"><div class="label">有记录天数</div><div class="val b">${bActiveDays}/7</div></div>`;
+  let bdRows='';
+  wk.days.forEach((d,i)=>{
+    const rs=behRecs.filter(r=>r.date===d);
+    const a=rs.filter(r=>r.point>0),sb=rs.filter(r=>r.coupon<0);
+    bdRows+=`<tr><td><b>${wdNames[i]}</b> <span class="muted small">${d.slice(5)}</span></td><td class="num" style="color:var(--green);font-weight:700">${a.length}</td><td class="num" style="color:var(--green)">+${a.reduce((x,r)=>x+r.point,0)}</td><td class="num" style="color:var(--red);font-weight:700">${sb.length}</td><td class="num" style="color:var(--red)">−${sb.reduce((x,r)=>x+(-r.coupon),0)}</td></tr>`;
+  });
+  bdRows+=`<tr style="background:#f8fafc;font-weight:700"><td>本周合计</td><td class="num" style="color:var(--green)">${bAdd.length}</td><td class="num" style="color:var(--green)">+${bAddSum}</td><td class="num" style="color:var(--red)">${bSub.length}</td><td class="num" style="color:var(--red)">−${bSubSum}</td></tr>`;
+  $('#wkBehDailyTable').innerHTML=`<thead><tr><th>日期</th><th class="num">加分次数</th><th class="num">加分合计</th><th class="num">扣分次数</th><th class="num">扣分合计（免作业）</th></tr></thead><tbody>${bdRows}</tbody>`;
+  // 各表现项目统计
+  const itemMap={};
+  behRecs.forEach(r=>{const k=r.item||'未命名';if(!itemMap[k])itemMap[k]={name:k,add:0,sub:0,addSum:0,subSum:0};if(r.point>0){itemMap[k].add++;itemMap[k].addSum+=r.point}else if(r.coupon<0){itemMap[k].sub++;itemMap[k].subSum+=-r.coupon}});
+  const items=Object.values(itemMap).sort((a,b)=>(b.add+b.sub)-(a.add+a.sub));
+  $('#wkBehItemTable').innerHTML=items.length?`<thead><tr><th>表现项目</th><th class="num">加分次数</th><th class="num">加分合计</th><th class="num">扣分次数</th><th class="num">扣分合计（免作业）</th><th class="num">合计人次</th></tr></thead><tbody>`+
+    items.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td class="num" style="color:var(--green)">${x.add}</td><td class="num" style="color:var(--green)">+${x.addSum}</td><td class="num" style="color:var(--red)">${x.sub}</td><td class="num" style="color:var(--red)">−${x.subSum}</td><td class="num"><b>${x.add+x.sub}</b></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="muted">本周暂无课堂表现记录</td></tr></tbody>';
+  // 学生表现明细矩阵
+  let bmh='<thead><tr><th>小组</th><th>姓名</th>'+wk.days.map((d,i)=>`<th>${wdNames[i]}<br><span class="muted small" style="font-weight:400">${d.slice(5)}</span></th>`).join('')+'<th class="num">加分</th><th class="num">扣分</th></tr></thead><tbody>';
+  let bmb='';
+  cls.groups.forEach(g=>{
+    g.students.forEach(s=>{
+      let ta=0,tsb=0;
+      const cells=wk.days.map(d=>{
+        const rs=behRecs.filter(r=>r.date===d&&r.studentId===s.id);
+        if(!rs.length)return '<td class="wk-cell"></td>';
+        const a=rs.filter(r=>r.point>0).length,sb=rs.filter(r=>r.coupon<0).length;
+        const as=rs.filter(r=>r.point>0).reduce((x,r)=>x+r.point,0),ss=rs.filter(r=>r.coupon<0).reduce((x,r)=>x+(-r.coupon),0);
+        ta+=as;tsb+=ss;
+        const parts=[];if(a)parts.push('+'+as);if(sb)parts.push('−'+ss);
+        return `<td class="wk-cell ${sb?'c-no':(a?'c-ok':'c-mk')}">${parts.join(' ')}</td>`;
+      }).join('');
+      bmb+=`<tr><td>${esc(g.name)}</td><td><b>${esc(s.name)}</b></td>${cells}<td class="num" style="color:var(--green)">+${ta}</td><td class="num" style="color:var(--red)">−${tsb}</td></tr>`;
+    });
+  });
+  $('#wkBehMatrixTable').innerHTML=bmh+(bmb||`<tr><td colspan="10" class="muted">暂无名单</td></tr>`)+'</tbody>';
+  // 表现记录列表
+  const bLogs=[...behRecs].sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
+  $('#wkBehLog').innerHTML=bLogs.length?bLogs.map(r=>`<div class="log-item"><span class="t">${r.date.slice(5)} ${new Date(r.ts).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span><span class="muted small">${esc(r.item||'课堂表现')}</span>${r.point>0?`<span class="badge g">+${r.point} 分</span>`:`<span class="badge r">−${-r.coupon} 次免作业</span>`}<button class="del" data-dellog="${r.id}" title="删除记录">✕</button></div>`).join(''):'<div class="empty small">本周暂无课堂表现记录</div>';
+}
+$('#wkDateInput').onchange=e=>{data.state.weekDate=e.target.value||today();save();renderWeekly()};
+$('#wkPrev').onclick=()=>{data.state.weekDate=addDays(data.state.weekDate||today(),-7);save();renderWeekly()};
+$('#wkNext').onclick=()=>{data.state.weekDate=addDays(data.state.weekDate||today(),7);save();renderWeekly()};
+$('#wkThis').onclick=()=>{data.state.weekDate=today();save();renderWeekly()};
+$('#weekHwSel').onchange=e=>{data.state.weekHwId=e.target.value;save();renderWeekly()};
+$('#weekDictSel').onchange=e=>{data.state.weekDictId=e.target.value;save();renderWeekly()};
+
+/* ==================== 渲染：统计 ==================== */
+$$('.tabs button[data-range]').forEach(b=>b.onclick=()=>{
+  $$('.tabs button[data-range]').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  data.state.range=b.dataset.range;save();renderStats();
+});
+function renderStats(){
+  const range=data.state.range,cid=data.state.classId;
+  $('#rangeDesc').textContent=rangeDesc(range)+'　班级：'+data.classes[cid].name;
+  const s=calc(cid,range);
+  const ss=Object.values(s.students),gs=Object.values(s.groups);
+  const totalPoint=ss.reduce((a,b)=>a+b.point,0)+s.passes.reduce((a,b)=>a+b.score,0);
+  const totalCut=ss.reduce((a,b)=>a+b.couponCut,0);
+  $('#statCards').innerHTML=`
+    <div class="stat-card"><div class="label">个人加分合计</div><div class="val g">${ss.reduce((a,b)=>a+b.point,0)}</div></div>
+    <div class="stat-card"><div class="label">小组过关奖励</div><div class="val o">${s.passes.reduce((a,b)=>a+b.score,0)}</div></div>
+    <div class="stat-card"><div class="label">扣分次数合计</div><div class="val" style="color:var(--red)">${totalCut}</div></div>
+    <div class="stat-card"><div class="label">小组积分总计</div><div class="val">${gs.reduce((a,b)=>a+b.point,0)}</div></div>`;
+  const sortedS=[...ss].sort((a,b)=>b.point-a.point||a.name.localeCompare(b.name,'zh'));
+  $('#studentTable').innerHTML=`<thead><tr><th>排名</th><th>姓名</th><th>小组</th><th class="num">日常加分</th><th class="num">扣分次数</th><th class="num">个人总分</th><th class="num">当前免作业</th></tr></thead><tbody>`+
+    sortedS.map((x,i)=>`<tr><td><span class="rank ${i<3?'top'+(i+1):''}">${i+1}</span></td><td><b>${esc(x.name)}</b></td><td>${esc(x.groupName)}</td><td class="num" style="color:var(--green);font-weight:700">+${x.point}</td><td class="num" style="color:var(--red)">${x.couponCut?'-'+x.couponCut:'0'}</td><td class="num"><b>${x.point}</b></td><td class="num"><span class="badge ${x.coupons>0?'g':x.coupons<0?'r':''}">${x.coupons}</span></td></tr>`).join('')+'</tbody>';
+  const sortedG=[...gs].sort((a,b)=>b.point-a.point);
+  $('#groupTable').innerHTML=`<thead><tr><th>排名</th><th>小组</th><th class="num">组员加分</th><th class="num">过关奖励</th><th class="num">小组总分</th><th class="num">可折算免作业</th></tr></thead><tbody>`+
+    sortedG.map((g,i)=>`<tr><td><span class="rank ${i<3?'top'+(i+1):''}">${i+1}</span></td><td><b>${esc(g.name)}</b></td><td class="num">${g.point-g.passBonus}</td><td class="num" style="color:var(--orange)">+${g.passBonus}</td><td class="num"><b>${g.point}</b></td><td class="num"><span class="badge p">${Math.floor(g.point/5)} 次</span></td></tr>`).join('')+'</tbody>';
+  // 各作业完成情况（按当前范围）
+  const hwStat=data.homeworks.map(h=>{
+    const rs=s.recs.filter(r=>r.category==='homework'&&r.hwId===h.id);
+    return {name:h.name,submit:rs.filter(r=>r.point>0).length,missing:rs.filter(r=>r.coupon<0).length,makeup:rs.filter(r=>r.point===0&&r.coupon===0).length};
+  }).filter(x=>x.submit+x.missing+x.makeup>0);
+  $('#hwStatTable').innerHTML=hwStat.length?`<thead><tr><th>作业项目</th><th class="num">交（+1）</th><th class="num">没交（−1）</th><th class="num">补（0）</th><th class="num">合计人次</th></tr></thead><tbody>`+
+    hwStat.map(h=>`<tr><td><b>${esc(h.name)}</b></td><td class="num" style="color:var(--green)">${h.submit}</td><td class="num" style="color:var(--red)">${h.missing}</td><td class="num">${h.makeup}</td><td class="num"><b>${h.submit+h.missing+h.makeup}</b></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="muted">所选时间范围内暂无作业打卡记录</td></tr></tbody>';
+  // 各默写过关内容完成情况
+  const dictStat=data.dictations.map(d=>{
+    const rs=s.recs.filter(r=>r.category==='dictation'&&r.dictId===d.id);
+    const bonus=s.passes.filter(p=>p.dictId===d.id).reduce((a,p)=>a+p.score,0);
+    return {name:d.name,pass:rs.filter(r=>r.point>0).length,fail:rs.filter(r=>r.coupon<0).length,other:rs.filter(r=>r.point===0&&r.coupon===0).length,bonus};
+  }).filter(x=>x.pass+x.fail+x.other+x.bonus>0);
+  $('#dictStatTable').innerHTML=dictStat.length?`<thead><tr><th>过关内容</th><th class="num">过关（+1）</th><th class="num">未过关（−1）</th><th class="num">其他（0）</th><th class="num">全组过关奖励</th><th class="num">合计人次</th></tr></thead><tbody>`+
+    dictStat.map(d=>`<tr><td><b>${esc(d.name)}</b></td><td class="num" style="color:var(--green)">${d.pass}</td><td class="num" style="color:var(--red)">${d.fail}</td><td class="num">${d.other}</td><td class="num" style="color:var(--orange)">+${d.bonus}</td><td class="num"><b>${d.pass+d.fail+d.other}</b></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="muted">所选时间范围内暂无默写过关记录</td></tr></tbody>';
+}
+
+/* ==================== 渲染：免作业 ==================== */
+function renderCoupon(){
+  const cid=data.state.classId;
+  const s=calc(cid,'term');
+  const gs=Object.values(s.groups),ss=Object.values(s.students);
+  const adjPlus=ss.reduce((a,x)=>a+Math.max(0,x.termAdjust),0),adjMinus=ss.reduce((a,x)=>a+Math.max(0,-x.termAdjust),0);
+  $('#couponCards').innerHTML=`
+    <div class="stat-card"><div class="label">累计小组积分</div><div class="val">${gs.reduce((a,g)=>a+g.termPoint,0)}</div></div>
+    <div class="stat-card"><div class="label">全组共享次数（单组最高）</div><div class="val g">${Math.max(0,...gs.map(g=>g.coupons))}</div></div>
+    <div class="stat-card"><div class="label">被扣次数合计</div><div class="val" style="color:var(--red)">${ss.reduce((a,x)=>a+x.termCut,0)}</div></div>
+    <div class="stat-card"><div class="label">已兑换次数合计</div><div class="val o">${ss.reduce((a,x)=>a+x.termRedeem,0)}</div></div>
+    <div class="stat-card"><div class="label">手动加机会</div><div class="val g">+${adjPlus}</div></div>
+    <div class="stat-card"><div class="label">手动扣机会</div><div class="val" style="color:var(--red)">−${adjMinus}</div></div>`;
+  $('#couponGroupTable').innerHTML=`<thead><tr><th>小组</th><th class="num">学期累计积分</th><th class="num">折算免作业次数</th><th class="num">剩余不足5分</th><th>组员共享</th></tr></thead><tbody>`+
+    gs.map(g=>`<tr><td><b>${esc(g.name)}</b></td><td class="num">${g.termPoint}</td><td class="num"><span class="badge p" style="font-size:14px">${g.coupons}</span></td><td class="num muted">${g.remainder}</td><td class="small">全组 ${g.studentIds.length} 人各得 ${g.coupons} 次</td></tr>`).join('')+'</tbody>';
+  const sorted=[...ss].sort((a,b)=>b.coupons-a.coupons);
+  $('#couponStudentTable').innerHTML=`<thead><tr><th>姓名</th><th>小组</th><th class="num">小组折算</th><th class="num">个人被扣</th><th class="num">已兑换</th><th class="num">手动调整</th><th class="num">当前免作业次数</th></tr></thead><tbody>`+
+    sorted.map(x=>{const g=s.groups[x.groupId];return `<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.groupName)}</td><td class="num">${g.coupons}</td><td class="num" style="color:var(--red)">${x.termCut?'-'+x.termCut:'0'}</td><td class="num" style="color:var(--orange)">${x.termRedeem?'-'+x.termRedeem:'0'}</td><td class="num" style="color:${x.termAdjust>0?'var(--green)':x.termAdjust<0?'var(--red)':''};font-weight:600">${x.termAdjust>0?'+'+x.termAdjust:(x.termAdjust<0?x.termAdjust:'0')}</td><td class="num"><span class="badge ${x.coupons>0?'g':x.coupons<0?'r':''}" style="font-size:14px">${x.coupons}</span></td></tr>`}).join('')+'</tbody>';
+  // 兑换下拉
+  const sel=$('#redeemStudentSel');
+  const prev=sel.value;
+  sel.innerHTML=sorted.map(x=>`<option value="${x.id}">${esc(x.groupName)} · ${esc(x.name)}（可用 ${x.coupons} 次）</option>`).join('');
+  if(sorted.some(x=>x.id===prev))sel.value=prev;
+  // 兑换记录
+  const logs=data.redeems.filter(r=>r.classId===cid).sort((a,b)=>b.ts-a.ts);
+  $('#redeemLog').innerHTML=logs.length?logs.map(r=>`<div class="log-item"><span class="t">${new Date(r.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span><span class="badge o">兑换 1 次</span><button class="del" data-delredeem="${r.id}" title="撤销兑换">✕</button></div>`).join(''):'<div class="empty small">暂无兑换记录</div>';
+  // 手动调整下拉
+  const asel=$('#adjStudentSel'),aprev=asel.value;
+  asel.innerHTML=sorted.map(x=>`<option value="${x.id}">${esc(x.groupName)} · ${esc(x.name)}（当前 ${x.coupons} 次）</option>`).join('');
+  if(sorted.some(x=>x.id===aprev))asel.value=aprev;
+  // 手动调整记录
+  const adjLogs=(data.adjustments||[]).filter(r=>r.classId===cid).sort((a,b)=>b.ts-a.ts);
+  $('#adjustLog').innerHTML=adjLogs.length?adjLogs.map(r=>`<div class="log-item"><span class="t">${new Date(r.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span><span class="badge ${r.delta>0?'g':'r'}">${r.delta>0?'+':''}${r.delta} 次</span>${r.reason?`<span class="muted small">${esc(r.reason)}</span>`:''}<button class="del" data-deladj="${r.id}" title="撤销调整">✕</button></div>`).join(''):'<div class="empty small">暂无手动调整记录</div>';
+}
+$('#redeemBtn').onclick=()=>{
+  const sid=$('#redeemStudentSel').value;
+  if(!sid){toast('请选择学生');return}
+  const cls=curClass();let found=null;
+  cls.groups.forEach(g=>g.students.forEach(s=>{if(s.id===sid)found={s,g}}));
+  if(!found){toast('学生不存在');return}
+  data.redeems.push({id:uid(),date:today(),classId:data.state.classId,studentId:sid,studentName:found.s.name,groupId:found.g.id,groupName:found.g.name,ts:Date.now()});
+  save();renderCoupon();toast(`${found.s.name} 已兑换 1 次，免作业次数已扣除`);
+};
+$('#redeemLog').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-delredeem]');if(!b)return;
+  data.redeems=data.redeems.filter(r=>r.id!==b.dataset.delredeem);save();renderCoupon();toast('已撤销兑换');
+});
+$('#adjBtn').onclick=()=>{
+  const sid=$('#adjStudentSel').value;
+  if(!sid){toast('请选择学生');return}
+  const type=$('#adjType').value,num=parseInt($('#adjNum').value,10)||1;
+  const delta=(type==='sub'?-num:num);
+  const reason=($('#adjReason').value||'').trim();
+  const cls=curClass();let found=null;
+  cls.groups.forEach(g=>g.students.forEach(s=>{if(s.id===sid)found={s,g}}));
+  if(!found){toast('学生不存在');return}
+  data.adjustments.push({id:uid(),date:today(),classId:data.state.classId,studentId:sid,studentName:found.s.name,groupId:found.g.id,groupName:found.g.name,delta,reason,ts:Date.now()});
+  $('#adjReason').value='';
+  save();renderCoupon();toast(`${found.s.name} ${delta>0?'+':''}${delta} 次免作业机会`);
+};
+$('#adjustLog').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-deladj]');if(!b)return;
+  data.adjustments=data.adjustments.filter(r=>r.id!==b.dataset.deladj);save();renderCoupon();toast('已撤销调整');
+});
+
+/* ==================== 渲染：设置 ==================== */
+function renderSettings(){
+  const cid=$('#editClassSel').value||data.state.classId;
+  const cls=data.classes[cid];
+  $('#groupEditors').innerHTML=cls.groups.map((g,i)=>`<div class="field"><label>${esc(g.name)}（${g.students.length}人）</label><textarea data-group="${g.id}" placeholder="每行一个姓名">${g.students.map(s=>esc(s.name)).join('\n')}</textarea></div>`).join('');
+  $('#homeworkEditor').innerHTML=data.homeworks.map(h=>`<div class="item-row">
+    <input type="text" data-hwname="${h.id}" value="${esc(h.name)}">
+    <span class="muted small">没交扣</span>
+    <input type="number" data-hwpenalty="${h.id}" value="${h.penalty||1}" min="1" max="99" title="没交时扣减的免作业次数">
+    <span class="muted small">次</span>
+    <button class="btn sm danger" data-hwdel="${h.id}">删</button></div>`).join('')||'<div class="empty small">暂无作业项目</div>';
+  $('#dictationEditor').innerHTML=data.dictations.map(d=>`<div class="item-row">
+    <input type="text" data-dictname="${d.id}" value="${esc(d.name)}">
+    <button class="btn sm danger" data-dictdel="${d.id}">删</button></div>`).join('')||'<div class="empty small">暂无过关内容</div>';
+  $('#passScoreEditor').innerHTML=data.passScores.map((v,i)=>`<div class="item-row">
+    <span class="muted small" style="min-width:52px">第${i+1}批</span>
+    <input type="number" data-pscore="${i}" value="${v}" min="0" max="99" style="width:80px">
+    <span class="muted small">分</span>
+    <button class="btn sm danger" data-psdel="${i}">删</button></div>`).join('')||'<div class="empty small">请添加名次加分</div>';
+  $('#behaviorEditor').innerHTML=data.behaviors.map(b=>`<div class="item-row">
+    <select data-btype="${b.id}" style="border:1px solid var(--line);border-radius:7px;padding:6px"><option value="add" ${b.type==='add'?'selected':''}>加</option><option value="sub" ${b.type==='sub'?'selected':''}>扣</option></select>
+    <input type="text" data-bname="${b.id}" value="${esc(b.name)}">
+    <input type="number" data-bscore="${b.id}" value="${b.score}" min="1" max="20">
+    <button class="btn sm danger" data-bdel="${b.id}">删</button></div>`).join('');
+}
+$('#editClassSel').onchange=renderSettings;
+$('#saveRoster').onclick=()=>{
+  const cid=$('#editClassSel').value;
+  $$('#groupEditors textarea').forEach(ta=>{
+    const g=data.classes[cid].groups.find(x=>x.id===ta.dataset.group);if(!g)return;
+    const names=ta.value.split('\n').map(x=>x.trim()).filter(Boolean);
+    const oldIds=g.students.map(s=>s.id);
+    g.students=names.map((n,i)=>({id:oldIds[i]||uid(),name:n}));
+  });
+  save();renderTop();renderCheckin();renderSettings();toast('名单已保存');
+};
+$('#addGroup').onclick=()=>{
+  const cid=$('#editClassSel').value;
+  const n=data.classes[cid].groups.length+1;
+  data.classes[cid].groups.push({id:uid(),name:'第'+n+'组',students:[]});
+  save();renderSettings();toast('已添加小组');
+};
+/* 作业项目管理 */
+function addHomework(name,quick){
+  name=(name||'').trim();if(!name){toast('请输入作业名称');return}
+  const h={id:uid(),name,penalty:1};data.homeworks.push(h);
+  if(quick){data.state.homeworkId=h.id;data.state.hwPenalty=1}
+  save();renderSettings();if(quick){renderCheckin();$$('.nav button').find(b=>b.dataset.page==='checkin').click()}
+  toast('已添加作业：'+name);
+}
+$('#homeworkEditor').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-hwdel]');if(!b)return;
+  data.homeworks=data.homeworks.filter(x=>x.id!==b.dataset.hwdel);
+  if(data.state.homeworkId===b.dataset.hwdel)data.state.homeworkId=data.homeworks[0]?data.homeworks[0].id:'';
+  save();renderSettings();toast('已删除作业');
+});
+$('#homeworkEditor').addEventListener('change',e=>{
+  const t=e.target,id=t.dataset.hwname||t.dataset.hwpenalty;if(!id)return;
+  const h=data.homeworks.find(x=>x.id===id);if(!h)return;
+  if(t.dataset.hwname){
+    const oldName=h.name;h.name=t.value.trim()||'未命名作业';
+    data.records.forEach(r=>{if(r.category==='homework'&&r.hwId===id)r.hwName=h.name});
+    save();toast('作业已改名：'+oldName+' → '+h.name);
+  }else if(t.dataset.hwpenalty){
+    h.penalty=Math.max(1,Number(t.value)||1);
+    if(data.state.homeworkId===id)data.state.hwPenalty=h.penalty;
+    save();renderCheckin();toast(`${h.name}：没交扣 ${h.penalty} 次`);
+  }
+});
+$('#addHw').onclick=()=>{addHomework($('#newHwName').value);$('#newHwName').value=''};
+$('#hwAddQuick').onclick=()=>{
+  const name=prompt('请输入新作业名称：');
+  if(name!==null)addHomework(name,true);
+};
+/* 小组过关名次加分配置 */
+$('#passScoreEditor').addEventListener('change',e=>{
+  const t=e.target,i=t.dataset.pscore;if(i===undefined)return;
+  data.passScores[Number(i)]=Math.max(0,Number(t.value)||0);
+  save();toast('第'+(Number(i)+1)+'批过关加分已更新为 '+data.passScores[Number(i)]+' 分');
+});
+$('#passScoreEditor').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-psdel]');if(!b)return;
+  if(data.passScores.length<=1){toast('至少保留一个批次分值');return}
+  data.passScores.splice(Number(b.dataset.psdel),1);
+  save();renderSettings();toast('已删除该批次');
+});
+$('#addPassScore').onclick=()=>{data.passScores.push(0);save();renderSettings();toast('已增加批次，请设置分值')};
+
+/* 默写过关内容项目管理 */
+function addDictation(name,quick){
+  name=(name||'').trim();if(!name){toast('请输入过关内容名称');return}
+  const d={id:uid(),name};data.dictations.push(d);
+  if(quick)data.state.dictationId=d.id;
+  save();renderSettings();if(quick){renderCheckin();$$('.nav button').find(b=>b.dataset.page==='checkin').click()}
+  toast('已添加过关内容：'+name);
+}
+$('#dictationEditor').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-dictdel]');if(!b)return;
+  data.dictations=data.dictations.filter(x=>x.id!==b.dataset.dictdel);
+  if(data.state.dictationId===b.dataset.dictdel)data.state.dictationId=data.dictations[0]?data.dictations[0].id:'';
+  save();renderSettings();toast('已删除过关内容');
+});
+$('#dictationEditor').addEventListener('change',e=>{
+  const t=e.target,id=t.dataset.dictname;if(!id)return;
+  const d=data.dictations.find(x=>x.id===id);if(!d)return;
+  const oldName=d.name;d.name=t.value.trim()||'未命名内容';
+  data.records.forEach(r=>{if(r.category==='dictation'&&r.dictId===id)r.dictName=d.name});
+  data.groupPass.forEach(p=>{if(p.dictId===id)p.dictName=d.name});
+  save();toast('内容已改名：'+oldName+' → '+d.name);
+});
+$('#addDict').onclick=()=>{addDictation($('#newDictName').value);$('#newDictName').value=''};
+$('#dicAddQuick').onclick=()=>{
+  const name=prompt('请输入过关内容名称：');
+  if(name!==null)addDictation(name,true);
+};
+$('#behaviorEditor').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-bdel]');if(!b)return;
+  data.behaviors=data.behaviors.filter(x=>x.id!==b.dataset.bdel);save();renderSettings();toast('已删除项目');
+});
+$('#behaviorEditor').addEventListener('change',e=>{
+  const t=e.target, id=t.dataset.btype||t.dataset.bname||t.dataset.bscore;if(!id)return;
+  const b=data.behaviors.find(x=>x.id===id);if(!b)return;
+  if(t.dataset.btype)b.type=t.value;
+  if(t.dataset.bname)b.name=t.value.trim()||'未命名';
+  if(t.dataset.bscore)b.score=Math.max(1,Number(t.value)||1);
+  save();toast('已更新项目');
+});
+$('#addBeh').onclick=()=>{
+  const n=$('#newBehName').value.trim();if(!n){toast('请输入项目名称');return}
+  data.behaviors.push({id:uid(),name:n,type:$('#newBehType').value,score:Math.max(1,Number($('#newBehScore').value)||1)});
+  $('#newBehName').value='';save();renderSettings();toast('已添加项目');
+};
+$('#exportData').onclick=()=>{
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='语文打卡备份_'+today()+'.json';a.click();
+  URL.revokeObjectURL(a.href);toast('备份已导出');
+};
+$('#importBtn').onclick=()=>$('#importFile').click();
+$('#importFile').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d.classes||!d.records)throw 0;data=d;normRoster();save();renderTop();renderPage('checkin');toast('导入成功')}catch(err){toast('文件格式不正确')}};
+  rd.readAsText(f);e.target.value='';
+};
+$('#clearData').onclick=()=>{
+  if(!confirm('确定清空所有打卡记录、积分和设置？此操作不可恢复！'))return;
+  if(!confirm('再次确认：真的要清空全部数据吗？'))return;
+  data=JSON.parse(JSON.stringify(defaultData));normRoster();save();renderTop();renderCheckin();toast('已清空');
+};
+
+/* ==================== 全局事件 ==================== */
+function updateSupaPanel(){
+  const u=$('#supaUrl'),k=$('#supaKey'),st=$('#supaState');if(!u||!k||!st)return;
+  if(!u.value)u.value=supabaseConfig.url;
+  if(!k.value)k.value=supabaseConfig.key;
+  st.textContent=(supabaseConfig.url&&supabaseConfig.key)?('当前：Supabase '+supabaseConfig.url):'当前：默认云端同步';
+}
+function clearSupaUrlParams(){
+  try{const url=new URL(location.href);url.searchParams.delete('supabaseUrl');url.searchParams.delete('supabaseKey');history.replaceState(null,'',url.toString())}catch(e){}
+}
+function saveSupaConfig(u,k){
+  if(!u||!k){toast('请填写 Project URL 和 anon key');return false}
+  localStorage.setItem(SUPABASE_KEY,JSON.stringify({url:u,key:k}));
+  clearSupaUrlParams();
+  toast('已保存 Supabase 配置，正在重新连接…');
+  setTimeout(()=>location.reload(),400);
+  return true;
+}
+function clearSupaConfig(){
+  localStorage.removeItem(SUPABASE_KEY);
+  clearSupaUrlParams();
+  toast('已切回默认云端，正在重新连接…');
+  setTimeout(()=>location.reload(),400);
+}
+$('#supaSave').onclick=()=>saveSupaConfig($('#supaUrl').value.trim().replace(/\/+$/,''),$('#supaKey').value.trim());
+$('#supaClear').onclick=()=>clearSupaConfig();
+updateSupaPanel();
+
+/* ===== 顶部「云端同步」弹窗 ===== */
+function fillCloudModal(){
+  $('#cloudUrl').value=supabaseConfig.url||'';
+  $('#cloudKey').value=supabaseConfig.key||'';
+  let msg=(supabaseConfig.url&&supabaseConfig.key)
+    ?('当前已配置 Supabase：'+supabaseConfig.url)
+    :'当前：默认云端同步（尚未配置 Supabase）';
+  if(supabaseConfig.url&&supabaseConfig.key){
+    msg+=cloudOK?'　✅ 已同步':'　❌ 同步失败'+(cloudErrMsg?('：'+cloudErrMsg):'');
+  }
+  $('#cloudState').textContent=msg;
+}
+$('#cloudBtn').onclick=()=>{fillCloudModal();$('#cloudMask').classList.add('on')};
+$('#cloudClose').onclick=()=>$('#cloudMask').classList.remove('on');
+$('#cloudMask').onclick=function(e){if(e.target===this)this.classList.remove('on')};
+$('#cloudSave').onclick=()=>saveSupaConfig($('#cloudUrl').value.trim().replace(/\/+$/,''),$('#cloudKey').value.trim());
+$('#cloudReset').onclick=()=>clearSupaConfig();
+$('#cloudTest').onclick=async()=>{
+  const u=$('#cloudUrl').value.trim().replace(/\/+$/,''),k=$('#cloudKey').value.trim(),st=$('#cloudState');
+  if(!u||!k){st.textContent='请先填写 Project URL 和 anon key';return}
+  if(!/^https?:\/\//i.test(u)){st.textContent='❌ Project URL 必须以 https:// 开头，例如 https://xxxx.supabase.co';return}
+  const H={apikey:k,Authorization:'Bearer '+k,Accept:'application/json'};
+  const lines=[];
+  st.textContent='正在诊断…';
+  // 1) 读取共享数据表
+  try{
+    const r=await fetch(u+'/rest/v1/checkin_data?select=id,rev&id=eq.main',{headers:H});
+    if(r.ok){const arr=await r.json();lines.push('✅ 数据表可读取（main 记录 '+(arr.length?'存在':'不存在，将自动创建')+'）')}
+    else{
+      let msg='';try{msg=(await r.json()).message||''}catch(e){}
+      lines.push('❌ 读取失败 HTTP '+r.status+(msg?'：'+msg:''));
+      if(r.status===404||/relation|schema cache|PGRST205/i.test(msg))lines.push('　→ 表不存在：请在 Supabase 执行 supabase_sync.sql 建表脚本');
+      else if(r.status===401||r.status===403||/JWT|permission|RLS|row-level/i.test(msg))lines.push('　→ 密钥或权限问题：确认用的是 anon public key，且建表脚本里的授权与 RLS 策略已执行');
+      st.textContent=lines.join('\n');return;
+    }
+  }catch(e){st.textContent='❌ 无法连接：'+e.message+'（检查网络，或 Project URL 是否填错，应是 https://xxxx.supabase.co 而非控制台地址）';return}
+  // 2) 检查写入函数是否存在（用预期版本 -1，不会真正写入数据）
+  try{
+    const r=await fetch(u+'/rest/v1/rpc/save_checkin',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},H),body:JSON.stringify({p_payload:{},p_expect_rev:-1})});
+    const body=await r.json().catch(()=>({}));
+    if(/revision conflict/i.test(body.message||''))lines.push('✅ 写入函数 save_checkin 正常');
+    else if(r.status===404||/Could not find the function|function .* does not exist/i.test(body.message||'')){
+      lines.push('❌ 写入函数 save_checkin 不存在：请在 Supabase 重新执行 supabase_sync.sql 中的函数部分');st.textContent=lines.join('\n');return;
+    }
+    else lines.push('✅ 写入函数可调用（HTTP '+r.status+'）');
+  }catch(e){lines.push('⚠ 写入函数检测异常：'+e.message)}
+  lines.push('全部检查通过，点「保存并连接」即可生效。');
+  st.textContent=lines.join('\n');
+};
+$('#openDisplay').onclick=()=>{
+  var q=[],sc=new URLSearchParams(location.search).get('sharecode');
+  if(sc)q.push('sharecode='+encodeURIComponent(sc));
+  if(supabaseConfig.url)q.push('supabaseUrl='+encodeURIComponent(supabaseConfig.url));
+  if(supabaseConfig.key)q.push('supabaseKey='+encodeURIComponent(supabaseConfig.key));
+  var u='语文打卡展示屏.html'+(q.length?('?'+q.join('&')):'');
+  window.open(u,'_blank');
+};
+$('#classSel').onchange=e=>{data.state.classId=e.target.value;save();renderCheckin();renderWeekly();renderStats();renderCoupon();renderSettings()};
+$('#dateInput').onchange=e=>setDate(e.target.value||today());
+
+/* ==================== 启动 ==================== */
+if(data._migrated){
+  setTimeout(()=>{toast('名单已更新为Excel准确版本，旧打卡数据已清除');delete data._migrated;save()},600);
+}
+renderTop();
+$$('.tabs button[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===data.state.tab));
+['homework','dictation','behavior'].forEach(t=>$('#tab-'+t).style.display=(t===data.state.tab?'block':'none'));
+$$('.tabs button[data-range]').forEach(b=>b.classList.toggle('active',b.dataset.range===data.state.range));
+renderCheckin();
+save();
+cloudBootstrap();
+</script>
+</body>
+</html>
