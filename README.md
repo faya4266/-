@@ -1,27 +1,23 @@
 # 803 / 804 语文打卡积分统计
 
-## 打开方式
+## 两个版本
 
-- 教师端：<https://faya4266.github.io/-/index.html>
-- 班级展示屏：<https://faya4266.github.io/-/display.html>（也可打开 `语文打卡展示屏.html`）
+- **国内分享链接（学校用）**：<https://chinese-checkin-scores.app.workbuddy.host/?sharecode=5S7FOHNU2K>
+  - 固定使用 WorkBuddy 云端，不依赖 github.io / supabase.co
+  - 学校网络只需浏览器打开，不用安装任何软件
+  - 展示屏：<https://chinese-checkin-scores.app.workbuddy.host/语文打卡展示屏.html?sharecode=5S7FOHNU2K>
+- **GitHub Pages 版本（校外用）**：<https://faya4266.github.io/-/index.html>
+  - 使用 Supabase 同步，配置在 `config.js`
 
-> 仓库名为 `-`，所以地址里带有 `/-/`。功能不受影响。
+> 两套版本的数据源不同，分别独立。学校统一用国内链接即可。
 
-## 多设备共用数据
+## 本目录说明
 
-GitHub Pages 上请使用 Supabase 同步（WorkBuddy 云端仅适用于原来的分享链接）：
+当前目录内容已切回 WorkBuddy 云端版，用于发布国内分享链接。
+页面加载时会主动清除浏览器里残留的 Supabase 配置，避免覆盖默认云端；
+云端网关短暂失败后会自动重试并在恢复时更新同步状态。
 
-1. 在 Supabase 新建项目，进入 SQL Editor，执行本仓库的 `supabase_sync.sql`。
-2. 进入 Project Settings → API，复制 Project URL 和 anon public key（不要用 service_role）。
-3. 打开教师端页面 →「云端同步」→ 粘贴 URL 和 anon key → 连接。
-4. 展示屏打开同一页面后会自动读取同一份数据。
-
-也可以把 URL 和 key 填入 `config.js` 后重新提交，这样所有打开页面的人都不用手动输入。
-
-## 文件说明
-
-- `index.html`：教师端（打卡、积分、免作业、统计、设置、云端同步入口）
+- `index.html`：教师端
 - `display.html` / `语文打卡展示屏.html`：只读展示屏
-- `config.js`：可选的 Supabase 配置
-- `supabase_sync.sql`：建表与同步函数脚本
-- `.nojekyll`：保证 GitHub Pages 正确处理文件
+- `supabase_sync.sql`：GitHub 版使用的 Supabase 建表脚本
+- `.nojekyll`：GitHub Pages 配置
