@@ -159,7 +159,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   .act button{flex:1}
 }
 </style>
-<script src="config.js"></script>
+<!-- WorkBuddy 云端版：不加载 Supabase 配置 -->
 </head>
 <body>
 
@@ -255,6 +255,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
       </div>
       <div class="row" style="margin-bottom:14px">
         <button class="btn orange sm" id="dicBatch">✅ 批量标记同时过关</button>
+        <span class="muted small" id="dicSelHint"></span>
         <label style="font-weight:600;margin-left:6px">统一批次</label>
         <select id="dicBatchRank" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px"></select>
         <button class="btn sm" id="dicResetOrder">重置本项本日过关次序</button>
@@ -418,8 +419,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   <div class="card">
     <h2>✅ 免作业兑换</h2>
     <div class="desc">学生使用免作业机会时点击"兑换"，将从其免作业次数中扣除。兑换记录可撤销。</div>
-    <div class="row" style="margin-bottom:12px">
-      <select id="redeemStudentSel" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 10px"></select>
+    <div class="row" style="margin-bottom:12px;flex-wrap:wrap">
+      <select id="redeemStudentSel" style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:8px;padding:8px 10px"></select>
+      <select id="redeemNum" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px" title="一次兑换的次数（1-20）"></select>
       <button class="btn primary" id="redeemBtn">兑换 1 次</button>
     </div>
     <div id="redeemLog"></div>
@@ -435,6 +437,24 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
       <button class="btn primary" id="adjBtn">确认调整</button>
     </div>
     <div id="adjustLog"></div>
+  </div>
+  <div class="card">
+    <h2>🏆 每周全勤奖惩（达标 +2 / 超标 −2）</h2>
+    <div class="rule-box">
+      <b>奖励（+2 次）：</b>本周"没交=0、默写未过关=0"，且有交作业、过关、课堂发言（加分项）记录。<br>
+      <b>惩罚（−2 次）：</b>本周没交作业 <b>&gt; 3 次</b>，或默写听写未过关 <b>&gt; 2 次</b>。<br>
+      个人与小组分别判定；同一学生每周奖励最多 +2、惩罚最多 −2（个人/小组不叠加，命中惩罚则不再奖励）。预览确认后点"应用"，写入可撤销记录。
+    </div>
+    <div class="row" style="margin-bottom:12px;flex-wrap:wrap">
+      <label style="font-weight:600">统计周（选周内任意一天）</label>
+      <input type="date" id="weekAwardDate">
+      <button class="btn sm" id="weekAwardPreviewBtn">🔍 预览本周奖惩</button>
+      <button class="btn primary" id="weekAwardApplyBtn">✅ 应用到免作业</button>
+      <span class="muted small" id="weekAwardRange"></span>
+    </div>
+    <div id="weekAwardPreview"></div>
+    <h3 style="margin-top:16px;font-size:15px">已应用记录</h3>
+    <div id="weekAwardLog"></div>
   </div>
   <div class="card">
     <h2>小组折算明细</h2>
@@ -608,7 +628,7 @@ const defaultData={
   groupPass:[],    // {id,date,classId,groupId,groupName,rank,score,ts}
   redeems:[],      // {id,date,classId,studentId,studentName,groupId,groupName,ts} 免作业兑换记录
   adjustments:[],  // {id,date,classId,studentId,studentName,groupId,groupName,delta,reason,ts} 老师手动加减免作业机会（delta 正加负扣）
-  state:{classId:'803',date:today(),weekDate:today(),range:'week',tab:'homework',homeworkId:'hw1',dictationId:'dict1',weekHwId:'__all__',weekDictId:'__all__',weekBehId:'__all__',behaviorAddId:'bh1',behaviorSubId:'bh5'}
+  state:{classId:'803',date:today(),weekDate:today(),weekAwardDate:today(),range:'week',tab:'homework',homeworkId:'hw1',dictationId:'dict1',weekHwId:'__all__',weekDictId:'__all__',weekBehId:'__all__',behaviorAddId:'bh1',behaviorSubId:'bh5'}
 };
 
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -644,15 +664,10 @@ const CLOUD_CONFIG={
   oauthRelayBaseUrl:'https://www.workbuddy.cn/v2/as/genie-baas/oauth'
 };
 const SUPABASE_KEY='chinese_checkin_supabase_v1';
+// 本版本固定使用 WorkBuddy 云端：清除浏览器里可能残留的 Supabase 配置，避免覆盖默认云端
 let supabaseConfig={url:'',key:''};
-try{
-  const q=new URLSearchParams(location.search);
-  const saved=JSON.parse(localStorage.getItem(SUPABASE_KEY)||'{}');
-  const cfgFile=(window.SUPABASE_CONFIG&&typeof window.SUPABASE_CONFIG==='object')?window.SUPABASE_CONFIG:{};
-  supabaseConfig.url=(q.get('supabaseUrl')||cfgFile.url||saved.url||'').replace(/\/+$/,'');
-  supabaseConfig.key=q.get('supabaseKey')||cfgFile.key||saved.key||'';
-  if(supabaseConfig.url&&supabaseConfig.key)localStorage.setItem(SUPABASE_KEY,JSON.stringify(supabaseConfig));
-}catch(e){}
+try{localStorage.removeItem(SUPABASE_KEY)}catch(e){}
+function errText(e){return (e&&(e.message||e.msg))||(typeof e==='string'?e:JSON.stringify(e))}
 let cloudClient=null;
 if(!supabaseConfig.url||!supabaseConfig.key){
   try{if(window.WorkBuddyCloud)cloudClient=WorkBuddyCloud.createWorkBuddyCloud({endpoint:CLOUD_CONFIG.endpoint,publishableKey:CLOUD_CONFIG.publishableKey,oauthRelayBaseUrl:CLOUD_CONFIG.oauthRelayBaseUrl})}catch(e){console.warn('cloud init failed',e)}
@@ -736,7 +751,7 @@ async function cloudPushNow(){
     const clean=JSON.parse(JSON.stringify(data));
     const newRev=await dbSaveCheckin(clean,cloudRev);
     cloudRev=Number(newRev);cloudOK=true;updateCloudChip();
-  }catch(e){cloudOK=false;cloudErrMsg=(e&&e.message)||String(e);updateCloudChip();console.warn('cloud push failed',cloudErrMsg)}
+  }catch(e){cloudOK=false;cloudErrMsg=errText(e);updateCloudChip();console.warn('cloud push failed',cloudErrMsg)}
   finally{cloudBusy=false;if(cloudPending){cloudPending=false;scheduleCloudPush()}}
 }
 function scheduleCloudPush(){
@@ -773,13 +788,14 @@ async function cloudBootstrap(){
       await cloudPushNow();
     }
     cloudOK=true;
-  }catch(e){cloudOK=false;cloudErrMsg=(e&&e.message)||String(e);console.warn('cloud bootstrap failed',cloudErrMsg)}
+  }catch(e){cloudOK=false;cloudErrMsg=errText(e);console.warn('cloud bootstrap failed',cloudErrMsg)}
   updateCloudChip();cloudBootDone=true;
 }
 setInterval(async()=>{
   if(cloudBusy||!dbReady()||!cloudBootDone)return;
   try{
     const row=await cloudPull();
+    if(!cloudOK){cloudOK=true;updateCloudChip()}
     if(row&&row.rev>cloudRev){
       mergeRemote(data,row.payload||{});cloudRev=row.rev||0;
       localStorage.setItem(KEY,JSON.stringify(data));
@@ -881,7 +897,7 @@ function calc(classId,range,dateFilter){
   termRecs.forEach(r=>{if(termCut[r.studentId]!==undefined&&r.coupon<0)termCut[r.studentId]+=-r.coupon});
   // 兑换次数（兑换后扣除免作业次数）
   const termRedeem={};Object.keys(students).forEach(id=>termRedeem[id]=0);
-  data.redeems.filter(r=>r.classId===classId).forEach(r=>{if(termRedeem[r.studentId]!==undefined)termRedeem[r.studentId]++});
+  data.redeems.filter(r=>r.classId===classId).forEach(r=>{if(termRedeem[r.studentId]!==undefined)termRedeem[r.studentId]+=(r.count||1)});
   // 老师手动加减免作业机会（delta 正为加、负为扣）
   const termAdjust={};Object.keys(students).forEach(id=>termAdjust[id]=0);
   (data.adjustments||[]).filter(r=>r.classId===classId).forEach(r=>{if(termAdjust[r.studentId]!==undefined)termAdjust[r.studentId]+=(Number(r.delta)||0)});
@@ -997,6 +1013,7 @@ function renderCheckin(){
     html+=`<div class="group-foot"><label class="muted small" style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="dic-sel" value="${g.id}">同时过关</label><button class="btn orange sm" data-dicall="${g.id}" ${p?'disabled':''}>全组过关</button>${p?`<span class="badge o" title="第${p.rank}批 +${p.score}分，勾选后可批量重新标记批次">已第${p.rank}批 +${p.score}</span>`:''}<span class="muted small">${g.students.length} 人</span></div></div>`;
   });
   $('#dicGroups').innerHTML=html||'<div class="empty">暂无名单</div>';
+  if(typeof updateDicSelHint==='function')updateDicSelHint();
   const sorted=[...dictPass].sort((a,b)=>a.rank-b.rank);
   // 批次下拉：可指定统一批次，或自动顺延
   const br=$('#dicBatchRank'),prevRank=br.value;
@@ -1107,11 +1124,21 @@ $('#dicGroups').addEventListener('click',e=>{
   if(b.dataset.dicall){
     const gid=b.dataset.dicall;
     if(!dictId){toast('请先在设置中添加过关内容');return}
-    if(data.groupPass.some(p=>p.date===data.state.date&&p.classId===data.state.classId&&p.dictId===dictId&&p.groupId===gid))return;
+    // 若已勾选"同时过关"的小组，则把勾选的小组（含本组）作为同一批、加同样的分数
+    const checked=$$('#dicGroups input.dic-sel:checked').map(el=>el.value);
+    const gids=checked.length?(checked.includes(gid)?checked:[...checked,gid]):[gid];
+    // 计算一次批次，整批共用相同 rank/score，保证同时过关的组加同样分数
     const {rank,score}=passRankInfo(dictId);
-    const g=curClass().groups.find(x=>x.id===gid);
-    data.groupPass.push({id:uid(),date:data.state.date,classId:data.state.classId,dictId,dictName,groupId:gid,groupName:g.name,rank,score,ts:Date.now()});
-    save();renderCheckin();toast(`${dictName}：${g.name} 第${rank}批过关，小组 +${score} 分`);return;
+    let added=[];
+    gids.forEach(g=>{
+      const grp=curClass().groups.find(x=>x.id===g);if(!grp)return;
+      if(data.groupPass.some(p=>p.date===data.state.date&&p.classId===data.state.classId&&p.dictId===dictId&&p.groupId===g))return;
+      data.groupPass.push({id:uid(),date:data.state.date,classId:data.state.classId,dictId,dictName,groupId:g,groupName:grp.name,rank,score,ts:Date.now()});
+      added.push(grp.name);
+    });
+    save();renderCheckin();
+    toast(added.length?(added.length>1?`${dictName}：${added.length} 个小组同时过关，同为第 ${rank} 批，各 +${score} 分`:`${dictName}：${added[0]} 第${rank}批过关，小组 +${score} 分`):'所选小组均已过关');
+    return;
   }
   const t=b.dataset.dic;if(!t)return;
   if(!dictId){toast('请先在设置中添加过关内容');return}
@@ -1163,6 +1190,12 @@ $('#hwClear').onclick=()=>{
   data.records=data.records.filter(r=>!(r.date===data.state.date&&r.classId===data.state.classId&&r.category==='homework'&&r.hwId===hwId));
   save();renderCheckin();toast('已清除');
 };
+function updateDicSelHint(){
+  const el=$('#dicSelHint');if(!el)return;
+  const n=$$('#dicGroups input.dic-sel:checked').length;
+  el.textContent=n>1?`已勾选 ${n} 组（点任一"全组过关"或"批量标记"，均按同批同分处理）`:'';
+}
+$('#dicGroups').addEventListener('change',e=>{if(e.target&&e.target.classList.contains('dic-sel'))updateDicSelHint()});
 $('#dicBatch').onclick=()=>{
   const dictId=data.state.dictationId;
   if(!dictId){toast('请先在设置中添加过关内容');return}
@@ -1421,9 +1454,16 @@ function renderCoupon(){
   const prev=sel.value;
   sel.innerHTML=sorted.map(x=>`<option value="${x.id}">${esc(x.groupName)} · ${esc(x.name)}（可用 ${x.coupons} 次）</option>`).join('');
   if(sorted.some(x=>x.id===prev))sel.value=prev;
+  // 兑换次数下拉（1-20），保留上次选择
+  const numSel=$('#redeemNum');
+  if(numSel){
+    if(!numSel.options.length){for(let i=1;i<=20;i++){const o=document.createElement('option');o.value=i;o.textContent='兑换 '+i+' 次';numSel.appendChild(o)}}
+    const prevN=numSel.value||'1';numSel.value=prevN;
+    $('#redeemBtn').textContent='兑换 '+prevN+' 次';
+  }
   // 兑换记录
   const logs=data.redeems.filter(r=>r.classId===cid).sort((a,b)=>b.ts-a.ts);
-  $('#redeemLog').innerHTML=logs.length?logs.map(r=>`<div class="log-item"><span class="t">${new Date(r.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span><span class="badge o">兑换 1 次</span><button class="del" data-delredeem="${r.id}" title="撤销兑换">✕</button></div>`).join(''):'<div class="empty small">暂无兑换记录</div>';
+  $('#redeemLog').innerHTML=logs.length?logs.map(r=>`<div class="log-item"><span class="t">${new Date(r.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span><span class="badge o">兑换 ${r.count||1} 次</span><button class="del" data-delredeem="${r.id}" title="撤销兑换">✕</button></div>`).join(''):'<div class="empty small">暂无兑换记录</div>';
   // 手动调整下拉
   const asel=$('#adjStudentSel'),aprev=asel.value;
   asel.innerHTML=sorted.map(x=>`<option value="${x.id}">${esc(x.groupName)} · ${esc(x.name)}（当前 ${x.coupons} 次）</option>`).join('');
@@ -1431,15 +1471,19 @@ function renderCoupon(){
   // 手动调整记录
   const adjLogs=(data.adjustments||[]).filter(r=>r.classId===cid).sort((a,b)=>b.ts-a.ts);
   $('#adjustLog').innerHTML=adjLogs.length?adjLogs.map(r=>`<div class="log-item"><span class="t">${new Date(r.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><b>${esc(r.studentName)}</b><span class="muted">${esc(r.groupName)}</span><span class="badge ${r.delta>0?'g':'r'}">${r.delta>0?'+':''}${r.delta} 次</span>${r.reason?`<span class="muted small">${esc(r.reason)}</span>`:''}<button class="del" data-deladj="${r.id}" title="撤销调整">✕</button></div>`).join(''):'<div class="empty small">暂无手动调整记录</div>';
+  // 每周全勤奖惩预览（在奖惩应用后需要同步刷新）
+  if(typeof renderWeekAward==='function')renderWeekAward();
 }
+$('#redeemNum').addEventListener('change',()=>{$('#redeemBtn').textContent='兑换 '+$('#redeemNum').value+' 次'});
 $('#redeemBtn').onclick=()=>{
   const sid=$('#redeemStudentSel').value;
   if(!sid){toast('请选择学生');return}
   const cls=curClass();let found=null;
   cls.groups.forEach(g=>g.students.forEach(s=>{if(s.id===sid)found={s,g}}));
   if(!found){toast('学生不存在');return}
-  data.redeems.push({id:uid(),date:today(),classId:data.state.classId,studentId:sid,studentName:found.s.name,groupId:found.g.id,groupName:found.g.name,ts:Date.now()});
-  save();renderCoupon();toast(`${found.s.name} 已兑换 1 次，免作业次数已扣除`);
+  const num=Math.max(1,Math.min(20,parseInt($('#redeemNum').value,10)||1));
+  data.redeems.push({id:uid(),date:today(),classId:data.state.classId,studentId:sid,studentName:found.s.name,groupId:found.g.id,groupName:found.g.name,count:num,ts:Date.now()});
+  save();renderCoupon();toast(`${found.s.name} 已兑换 ${num} 次，免作业次数已扣除`);
 };
 $('#redeemLog').addEventListener('click',e=>{
   const b=e.target.closest('button[data-delredeem]');if(!b)return;
@@ -1461,6 +1505,111 @@ $('#adjBtn').onclick=()=>{
 $('#adjustLog').addEventListener('click',e=>{
   const b=e.target.closest('button[data-deladj]');if(!b)return;
   data.adjustments=data.adjustments.filter(r=>r.id!==b.dataset.deladj);save();renderCoupon();toast('已撤销调整');
+});
+
+/* ==================== 每周全勤奖惩（+2 / −2） ==================== */
+function weekRecs(cid,weekStart){
+  const wk=weekInfo(weekStart);
+  return data.records.filter(r=>r.classId===cid&&wk.days.includes(r.date));
+}
+function countWeek(recs,sid){
+  const o={submit:0,miss:0,pass:0,fail:0,speak:0};
+  recs.forEach(r=>{
+    if(r.studentId!==sid)return;
+    const it=r.item||'';
+    if(r.category==='homework'){
+      if(it==='交'||r.point>0)o.submit++;
+      else if(it==='没交'||r.coupon<0)o.miss++;
+    }else if(r.category==='dictation'){
+      if(it==='过关'||r.point>0)o.pass++;
+      else if(it==='未过关'||r.coupon<0)o.fail++;
+    }else if(r.category==='behavior'){
+      if(r.point>0||r._action==='add')o.speak++;
+    }
+  });
+  return o;
+}
+function weeklyAwardPlan(cid,weekStart){
+  const cls=data.classes[cid];
+  if(!cls)return {week:weekInfo(weekStart),students:[],groups:[],applied:false,batchId:''};
+  const recs=weekRecs(cid,weekStart),wk=weekInfo(weekStart);
+  const students=[];
+  cls.groups.forEach(g=>g.students.forEach(s=>students.push(Object.assign({id:s.id,name:s.name,groupId:g.id,groupName:g.name},countWeek(recs,s.id)))));
+  const groups=cls.groups.map(g=>{
+    const mem=students.filter(s=>s.groupId===g.id),agg={submit:0,miss:0,pass:0,fail:0,speak:0};
+    mem.forEach(m=>{for(const k in agg)agg[k]+=m[k]});
+    return Object.assign({id:g.id,name:g.name,members:mem.length},agg);
+  });
+  const full=x=>x.miss===0&&x.fail===0&&x.submit>=1&&x.pass>=1&&x.speak>=1;
+  const bad=x=>x.miss>3||x.fail>2;
+  const applied=(data.adjustments||[]).filter(a=>a.kind==='weeklyAward'&&a.classId===cid&&a.weekStart===wk.start);
+  const plan={week:wk,students:[],groups:[],applied:applied.length>0,batchId:applied[0]?applied[0].batchId:''};
+  const gById={};groups.forEach(g=>gById[g.id]=g);
+  students.forEach(s=>{
+    const g=gById[s.groupId]||{miss:0,fail:0};
+    if(bad(s)||bad(g))plan.students.push({id:s.id,name:s.name,groupId:s.groupId,groupName:s.groupName,scope:(bad(s)?'个人':'小组')+'超标',delta:-2,reason:`本人 没交${s.miss}/未过关${s.fail}；本组 没交${g.miss}/未过关${g.fail}`});
+    else if(full(s)||full(g))plan.students.push({id:s.id,name:s.name,groupId:s.groupId,groupName:s.groupName,scope:(full(g)&&!full(s)?'小组':'个人')+'全勤',delta:2,reason:`交${s.submit}/过${s.pass}/言${s.speak}，本组 交${g.submit}/过${g.pass}/言${g.speak}`});
+  });
+  groups.forEach(g=>{
+    if(full(g))plan.groups.push({id:g.id,name:g.name,delta:2,reason:`全组达标 交${g.submit}/过${g.pass}/言${g.speak}`});
+    else if(bad(g))plan.groups.push({id:g.id,name:g.name,delta:-2,reason:`全组超标 没交${g.miss}/未过关${g.fail}`});
+  });
+  return plan;
+}
+function renderWeekAwardLog(){
+  const el=$('#weekAwardLog');if(!el)return;
+  const cid=data.state.classId;
+  const rows=(data.adjustments||[]).filter(a=>a.kind==='weeklyAward'&&a.classId===cid);
+  const batches={};
+  rows.forEach(a=>{const k=a.batchId||a.weekStart;if(!batches[k])batches[k]={key:k,week:a.weekStart,items:[]};batches[k].items.push(a)});
+  const list=Object.values(batches).sort((a,b)=>b.week.localeCompare(a.week));
+  el.innerHTML=list.length?list.map(b=>{
+    const p=b.items.filter(x=>x.delta>0).length,m=b.items.filter(x=>x.delta<0).length;
+    return `<div class="log-item"><span class="t">${b.week} 当周</span><span class="badge g">奖励 ${p} 人</span><span class="badge r">扣分 ${m} 人</span><button class="btn sm danger" data-delweekbatch="${esc(b.key)}">撤销本周</button></div>`;
+  }).join(''):'<div class="empty small">暂无已应用的每周奖惩</div>';
+}
+function renderWeekAward(){
+  const wad=$('#weekAwardDate');if(!wad)return;
+  if(!wad.value)wad.value=data.state.weekAwardDate||today();
+  const plan=weeklyAwardPlan(data.state.classId,wad.value);
+  $('#weekAwardRange').textContent=`周次：${plan.week.start}（周一）至 ${plan.week.end}（周日）`;
+  const plus=plan.students.filter(x=>x.delta>0),minus=plan.students.filter(x=>x.delta<0);
+  const gplus=plan.groups.filter(x=>x.delta>0),gminus=plan.groups.filter(x=>x.delta<0);
+  $('#weekAwardPreview').innerHTML=`
+    <div class="stat-cards">
+      <div class="stat-card"><div class="label">达标奖励人数</div><div class="val g">+${plus.length}</div></div>
+      <div class="stat-card"><div class="label">超标扣分人数</div><div class="val" style="color:var(--red)">−${minus.length}</div></div>
+      <div class="stat-card"><div class="label">达标小组</div><div class="val g">${gplus.length}</div></div>
+      <div class="stat-card"><div class="label">超标小组</div><div class="val" style="color:var(--red)">${gminus.length}</div></div>
+    </div>
+    <div class="note">${plan.applied?'⚠️ 本周奖惩已应用，如需修改请先撤销下方记录。':'📌 预览后点"应用"写入免作业次数；应用后仍可在下方撤销。个人/小组不叠加，命中超标不再奖励。'}</div>
+    <div class="table-wrap"><table><thead><tr><th>姓名</th><th>小组</th><th>判定</th><th class="num">调整</th><th>依据</th></tr></thead><tbody>`+
+    (plan.students.length?plan.students.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.groupName)}</td><td>${esc(x.scope)}</td><td class="num" style="color:${x.delta>0?'var(--green)':'var(--red)'};font-weight:700">${x.delta>0?'+2':'−2'}</td><td class="small muted">${esc(x.reason)}</td></tr>`).join(''):'<tr><td colspan="5" class="muted">本周暂无达标或超标记录</td></tr>')+'</tbody></table></div>';
+  const btn=$('#weekAwardApplyBtn');
+  btn.disabled=plan.applied||(!plus.length&&!minus.length);
+  btn.textContent=plan.applied?'本周已应用':'✅ 应用到免作业';
+  renderWeekAwardLog();
+}
+$('#weekAwardDate').onchange=e=>{data.state.weekAwardDate=e.target.value||today();save();renderWeekAward()};
+$('#weekAwardPreviewBtn').onclick=()=>renderWeekAward();
+$('#weekAwardApplyBtn').onclick=()=>{
+  const w=$('#weekAwardDate').value||data.state.weekAwardDate||today();
+  const cid=data.state.classId,plan=weeklyAwardPlan(cid,w);
+  if(plan.applied){toast('本周已应用，请先撤销');return}
+  const targets=plan.students;
+  if(!targets.length){toast('本周暂无达标或超标记录');return}
+  if(!confirm(`确认将本周奖惩写入 ${targets.length} 名学生的免作业次数？`))return;
+  const batchId=uid(),ts=Date.now(),date=plan.week.start;
+  targets.forEach(x=>data.adjustments.push({id:uid(),date,classId:cid,studentId:x.id,studentName:x.name,groupId:x.groupId,groupName:x.groupName,delta:x.delta,reason:`${plan.week.start}当周全勤奖惩（${x.scope}）`,kind:'weeklyAward',weekStart:plan.week.start,batchId,ts}));
+  save();renderCoupon();renderWeekAward();
+  toast(`已应用：奖励 ${targets.filter(x=>x.delta>0).length} 人、扣分 ${targets.filter(x=>x.delta<0).length} 人`);
+};
+$('#weekAwardLog').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-delweekbatch]');if(!b)return;
+  const key=b.dataset.delweekbatch;
+  if(!confirm('确定撤销该周全部奖惩记录？'))return;
+  data.adjustments=(data.adjustments||[]).filter(a=>!(a.classId===data.state.classId&&(a.batchId||a.weekStart)===key));
+  save();renderCoupon();renderWeekAward();toast('已撤销该周奖惩');
 });
 
 /* ==================== 渲染：设置 ==================== */
