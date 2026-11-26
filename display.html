@@ -135,7 +135,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   .stat .num{font-size:27px}
 }
 </style>
-<script src="config.js"></script>
+<!-- WorkBuddy 云端版：不加载 Supabase 配置 -->
 </head>
 <body>
 
@@ -172,9 +172,12 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
       </div>
     </div>
     <div class="panel">
-      <h2>📅 本周每日作业提交</h2>
-      <div class="desc">当日提交率 = 已交人次 ÷ 已记录人次。</div>
+      <h2>📅 作业提交 · 周总表总结</h2>
+      <div class="desc">与教师端周总表一致：先显示本周提交汇总，再按周一至周日列出应交、已交、未交、补交、未记录与提交率。</div>
+      <div class="cards" id="ovSubmitCards" style="margin-bottom:12px"></div>
       <div class="table-wrap"><table id="ovDailyTable"></table></div>
+      <div class="subhead">各作业项目提交汇总</div>
+      <div class="table-wrap"><table id="ovHwProjectTable"></table></div>
     </div>
   </section>
 
@@ -378,15 +381,9 @@ let data=null,useImported=false,lastRaw='',viewIdx=0,countdown=20,timer=null;
 
 const CLOUD_CONFIG={endpoint:'https://chinese-checkin-scores.app.workbuddy.host',publishableKey:'wbpk_xz7rvez52iYbIk5oYxOvIk_0NOwX4Ep9Gv3eVJl7GAsBd2cwN3FELNX',oauthRelayBaseUrl:'https://www.workbuddy.cn/v2/as/genie-baas/oauth'};
 const SUPABASE_KEY='chinese_checkin_supabase_v1';
+// 本版本固定使用 WorkBuddy 云端：清除浏览器里可能残留的 Supabase 配置
 let supabaseConfig={url:'',key:''};
-try{
-  const q=new URLSearchParams(location.search);
-  const saved=JSON.parse(localStorage.getItem(SUPABASE_KEY)||'{}');
-  const cfgFile=(window.SUPABASE_CONFIG&&typeof window.SUPABASE_CONFIG==='object')?window.SUPABASE_CONFIG:{};
-  supabaseConfig.url=(q.get('supabaseUrl')||cfgFile.url||saved.url||'').replace(/\/+$/,'');
-  supabaseConfig.key=q.get('supabaseKey')||cfgFile.key||saved.key||'';
-  if(supabaseConfig.url&&supabaseConfig.key)localStorage.setItem(SUPABASE_KEY,JSON.stringify(supabaseConfig));
-}catch(e){}
+try{localStorage.removeItem(SUPABASE_KEY)}catch(e){}
 let cloudClient=null;
 if(!supabaseConfig.url||!supabaseConfig.key){
   try{if(window.WorkBuddyCloud)cloudClient=WorkBuddyCloud.createWorkBuddyCloud({endpoint:CLOUD_CONFIG.endpoint,publishableKey:CLOUD_CONFIG.publishableKey,oauthRelayBaseUrl:CLOUD_CONFIG.oauthRelayBaseUrl})}catch(e){console.warn('cloud init failed',e)}
@@ -499,7 +496,7 @@ function calc(classId,range){
   const termCut={};Object.keys(students).forEach(id=>termCut[id]=0);
   termRecs.forEach(r=>{if(termCut[r.studentId]!==undefined&&r.coupon<0)termCut[r.studentId]+=-r.coupon});
   const termRedeem={};Object.keys(students).forEach(id=>termRedeem[id]=0);
-  (data.redeems||[]).filter(r=>r.classId===classId).forEach(r=>{if(termRedeem[r.studentId]!==undefined)termRedeem[r.studentId]++});
+  (data.redeems||[]).filter(r=>r.classId===classId).forEach(r=>{if(termRedeem[r.studentId]!==undefined)termRedeem[r.studentId]+=(r.count||1)});
   const termAdjust={};Object.keys(students).forEach(id=>termAdjust[id]=0);
   (data.adjustments||[]).filter(r=>r.classId===classId).forEach(r=>{if(termAdjust[r.studentId]!==undefined)termAdjust[r.studentId]+=(Number(r.delta)||0)});
   Object.values(groups).forEach(g=>{
@@ -573,7 +570,23 @@ function renderOverview(){
   const topG=gs.slice().sort((a,b)=>b.point-a.point);
   document.getElementById('ovGroupTable').innerHTML=`<thead><tr><th>名次</th><th>小组</th><th class="num">总分</th><th style="width:100px">对比</th></tr></thead><tbody>`+
     topG.map((g,i)=>`<tr><td><span class="rk ${i<3?'t'+(i+1):''}">${i+1}</span></td><td><b>${esc(g.name)}</b></td><td class="num"><b>${g.point}</b></td><td><div class="bar"><i style="width:${Math.round(g.point/maxG*100)}%"></i></div></td></tr>`).join('')+'</tbody>';
-  renderDailyTable('ovDailyTable',s,false);
+  /* 作业提交周总表总结：与教师端每日提交情况汇总一致 */
+  const wk=weekInfo(today()),weekRecs=(data.records||[]).filter(r=>r.classId===curClass&&r.category==='homework'&&wk.days.includes(r.date));
+  const subN=weekRecs.filter(r=>r.point>0).length,misN=weekRecs.filter(r=>r.coupon<0).length,mkN=weekRecs.filter(r=>r.point===0&&r.coupon===0).length;
+  const activeDays=wk.days.filter(d=>weekRecs.some(r=>r.date===d)).length;
+  const rateAll=weekRecs.length?Math.round(subN/weekRecs.length*100):0;
+  document.getElementById('ovSubmitCards').innerHTML=`
+    <div class="stat"><div class="lab">班级人数</div><div class="num">${total}</div><div class="sub">共 ${gs.length} 个小组</div></div>
+    <div class="stat g"><div class="lab">本周已交人次</div><div class="num">${subN}</div><div class="sub">${wk.start.slice(5)} 至 ${wk.end.slice(5)}</div></div>
+    <div class="stat r"><div class="lab">本周未交人次</div><div class="num">${misN}</div><div class="sub">只扣免作业次数</div></div>
+    <div class="stat o"><div class="lab">补交人次</div><div class="num">${mkN}</div><div class="sub">补交记 0 分</div></div>
+    <div class="stat p"><div class="lab">本周提交率 / 有记录天数</div><div class="num">${rateAll}% · ${activeDays}/7</div><div class="sub">提交率 = 已交 ÷ 已记录</div></div>`;
+  renderDailyTable('ovDailyTable',s,true);
+  const hws=data.homeworks||[];
+  const hwStat=hws.map(h=>{const rs=weekRecs.filter(r=>r.hwId===h.id);return {name:h.name,a:rs.filter(r=>r.point>0).length,b:rs.filter(r=>r.coupon<0).length,c:rs.filter(r=>r.point===0&&r.coupon===0).length}}).filter(x=>x.a+x.b+x.c>0).sort((a,b)=>(b.a+b.b+b.c)-(a.a+a.b+a.c));
+  const totalRow={name:'全部作业合计',a:subN,b:misN,c:mkN};
+  const rows=[totalRow].concat(hwStat);
+  document.getElementById('ovHwProjectTable').innerHTML=rows.length?'<thead><tr><th>作业项目</th><th class="num">交</th><th class="num">没交</th><th class="num">补</th><th class="num">合计</th><th class="num">提交率</th></tr></thead><tbody>'+rows.map(x=>{const all=x.a+x.b+x.c,rate=all?Math.round(x.a/all*100):0;return `<tr><td><b>${esc(x.name)}</b></td><td class="num" style="color:var(--green);font-weight:800">${x.a}</td><td class="num" style="color:var(--red);font-weight:800">${x.b}</td><td class="num">${x.c}</td><td class="num">${all}</td><td class="num"><span class="badge ${rate>=90?'g':rate>=60?'o':'r'}">${rate}%</span></td></tr>`}).join('')+'</tbody>':'<tbody><tr><td class="muted">本周暂无作业提交记录</td></tr></tbody>';
 }
 
 function renderDailyTable(id,s,withTotal){
@@ -587,11 +600,11 @@ function renderDailyTable(id,s,withTotal){
     const a=rs.filter(r=>r.point>0).length,b=rs.filter(r=>r.coupon<0).length,c=rs.filter(r=>r.point===0&&r.coupon===0).length;
     sumS+=a;sumM+=b;sumK+=c;
     const rate=rs.length?Math.round(a/rs.length*100):0;
-    rows+=`<tr><td><b>${names[i]}</b> <span class="muted">${d.slice(5)}</span></td><td class="num">${a}</td><td class="num" style="color:var(--red);font-weight:700">${b}</td><td class="num">${c}</td><td class="num muted">${Math.max(0,total-rs.length)}</td><td class="num"><span class="badge ${rate>=90?'g':rate>=60?'o':'r'}">${rate}%</span></td></tr>`;
+    rows+=`<tr><td><b>${names[i]}</b> <span class="muted">${d.slice(5)}</span></td><td class="num">${total}</td><td class="num" style="color:var(--green);font-weight:700">${a}</td><td class="num" style="color:var(--red);font-weight:700">${b}</td><td class="num">${c}</td><td class="num muted">${Math.max(0,total-rs.length)}</td><td class="num"><span class="badge ${rate>=90?'g':rate>=60?'o':'r'}">${rate}%</span></td></tr>`;
   });
   if(withTotal){const rate=recs.length?Math.round(sumS/recs.length*100):0;
-    rows+=`<tr style="background:#f8fafc;font-weight:800"><td>本周合计</td><td class="num" style="color:var(--green)">${sumS}</td><td class="num" style="color:var(--red)">${sumM}</td><td class="num">${sumK}</td><td class="num muted">${Math.max(0,total*7-recs.length)}</td><td class="num">${rate}%</td></tr>`}
-  document.getElementById(id).innerHTML=`<thead><tr><th>日期</th><th class="num">已交</th><th class="num">未交</th><th class="num">补交</th><th class="num">未记录</th><th class="num">提交率</th></tr></thead><tbody>${rows}</tbody>`;
+    rows+=`<tr style="background:#f8fafc;font-weight:800"><td>本周合计</td><td class="num">${total*7}</td><td class="num" style="color:var(--green)">${sumS}</td><td class="num" style="color:var(--red)">${sumM}</td><td class="num">${sumK}</td><td class="num muted">${Math.max(0,total*7-recs.length)}</td><td class="num">${rate}%</td></tr>`}
+  document.getElementById(id).innerHTML=`<thead><tr><th>日期</th><th class="num">应交人次</th><th class="num">已交</th><th class="num">未交</th><th class="num">补交</th><th class="num">未记录</th><th class="num">提交率</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 function renderStudent(){
